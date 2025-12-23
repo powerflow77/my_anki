@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>나만의 단어장 (최종)</title>
+    <title>나만의 단어장 (심플 버전)</title>
     <style>
         /* 기본 스타일 */
         body { font-family: 'Apple SD Gothic Neo', sans-serif; background-color: #f0f2f5; margin: 0; display: flex; flex-direction: column; height: 100vh; }
         
-        /* 네비게이션바 */
+        /* 네비게이션바 - 문장공부 삭제로 2칸으로 조정 */
         nav { background: white; padding: 15px 5px; display: flex; justify-content: space-around; border-bottom: 1px solid #ddd; flex-shrink: 0; }
-        .nav-item { font-weight: bold; color: #aaa; cursor: pointer; padding: 5px 10px; font-size: 14px; }
+        .nav-item { font-weight: bold; color: #aaa; cursor: pointer; padding: 5px 10px; font-size: 14px; flex: 1; text-align: center; }
         .nav-item.active { color: black; border-bottom: 2px solid black; }
         
         .container { flex: 1; padding: 20px; display: flex; flex-direction: column; align-items: center; overflow-y: auto; }
@@ -38,11 +38,6 @@
         .btn-group { display: flex; gap: 10px; width: 100%; }
         .btn-group button { flex: 1; padding: 15px; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; font-size: 14px; }
         
-        /* 문장 공부용 스타일 */
-        .random-word-box { background: #fffbe6; border: 2px dashed #ffd6a5; border-radius: 15px; padding: 20px; margin-top: 20px; text-align: center; }
-        .word-tag { display: inline-block; background: white; border: 1px solid #ddd; padding: 10px 20px; margin: 5px; border-radius: 20px; font-weight: bold; font-size: 18px; color: #333; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-        .word-meaning { display: block; font-size: 12px; color: #888; margin-top: 2px; font-weight: normal; }
-
         /* 로딩 화면 */
         #loading { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.9); z-index:999; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 20px; color: #333; }
     </style>
@@ -54,7 +49,6 @@
     <nav>
         <div id="tab-manage" class="nav-item active" onclick="ui.switchTab('manage')">카드관리</div>
         <div id="tab-study" class="nav-item" onclick="ui.switchTab('study')">단어공부</div>
-        <div id="tab-sentence" class="nav-item" onclick="ui.switchTab('sentence')">문장공부</div>
     </nav>
 
     <div class="container">
@@ -93,30 +87,12 @@
                 <button class="add-btn" onclick="ui.switchTab('manage')">관리 화면으로</button>
             </div>
         </div>
-
-        <div id="view-sentence" class="screen">
-            <div class="status-box">
-                <h3 style="margin:0">🎲 문장 만들기 연습</h3>
-                <p style="color:#666; font-size:14px;">저장된 단어 중 3개를 랜덤으로 뽑습니다.<br>이 단어들을 모두 사용해서 문장을 만들어보세요.</p>
-            </div>
-            
-            <button class="add-btn" onclick="logic.drawRandomWords()" style="background: #007bff;">🎲 단어 3개 뽑기</button>
-
-            <div id="random-result" style="display:none;">
-                <div class="random-word-box" id="random-words-container">
-                    </div>
-                <p style="text-align:center; color:#888; font-size:13px; margin-top:10px;">(단어를 터치하면 뜻이 보입니다)</p>
-            </div>
-        </div>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
         import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
-        // ========================================================
-        // 님이 보내주신 키값이 여기에 적용되었습니다!
-        // ========================================================
         const firebaseConfig = {
             apiKey: "AIzaSyBaf_WMp-HO061x8di3e2Z_bFrSytngQGA",
             authDomain: "anki-27849.firebaseapp.com",
@@ -134,7 +110,6 @@
         let cards = [];
         let currentCard = null;
 
-        // UI 제어
         window.ui = {
             switchTab: (tabName) => {
                 document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
@@ -149,29 +124,16 @@
                 document.getElementById('card-text').innerHTML = `<div class="front">${currentCard.front}</div><div class="back">${currentCard.back}</div>`;
                 document.getElementById('rating-btns').style.display = 'flex';
                 document.getElementById('guide-text').style.display = 'none';
-            },
-            toggleMeaning: (element) => {
-                const meaningSpan = element.querySelector('.word-meaning');
-                if (meaningSpan.style.display === 'none') {
-                    meaningSpan.style.display = 'block';
-                } else {
-                    meaningSpan.style.display = 'none';
-                }
             }
         };
 
-        // 로직 제어
         window.logic = {
             loadCards: async () => {
                 document.getElementById('loading').style.display = 'flex';
                 try {
                     const docRef = doc(db, "anki", DOC_ID);
                     const docSnap = await getDoc(docRef);
-                    if (docSnap.exists()) {
-                        cards = docSnap.data().list || [];
-                    } else {
-                        cards = [];
-                    }
+                    cards = docSnap.exists() ? (docSnap.data().list || []) : [];
                     ui.renderList();
                     ui.updateStats();
                 } catch (e) {
@@ -255,32 +217,6 @@
                     document.getElementById('study-content').style.display = 'none';
                     document.getElementById('no-study').style.display = 'block';
                 }
-            },
-
-            // 랜덤 단어 3개 뽑기
-            drawRandomWords: () => {
-                if (cards.length < 3) {
-                    return alert(`단어가 너무 적어요! 최소 3개는 저장해야 합니다.\n(현재: ${cards.length}개)`);
-                }
-
-                const shuffled = [...cards].sort(() => 0.5 - Math.random());
-                const selected = shuffled.slice(0, 3);
-
-                const container = document.getElementById('random-words-container');
-                container.innerHTML = '';
-
-                selected.forEach(card => {
-                    const tag = document.createElement('div');
-                    tag.className = 'word-tag';
-                    tag.innerHTML = `
-                        ${card.front}
-                        <span class="word-meaning" style="display:none;">${card.back}</span>
-                    `;
-                    tag.onclick = function() { ui.toggleMeaning(this); };
-                    container.appendChild(tag);
-                });
-
-                document.getElementById('random-result').style.display = 'block';
             }
         };
 
