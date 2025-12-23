@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Anki Pro (Stats Mode)</title>
+    <title>Anki Pro (KPI Mode)</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { font-family: 'Apple SD Gothic Neo', sans-serif; background-color: #f0f2f5; margin: 0; display: flex; flex-direction: column; height: 100vh; }
@@ -14,8 +14,8 @@
         .screen { width: 100%; max-width: 450px; display: none; } 
         .screen.active { display: block; } 
         
-        /* 공통 스타일 */
-        .card-box { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        /* 카드 박스 */
+        .card-box { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px; width: 100%; box-sizing: border-box; }
         input { width: 100%; padding: 12px; margin: 5px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
         .add-btn { background: black; color: white; width: 100%; padding: 12px; margin-top: 10px; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; }
         
@@ -25,12 +25,17 @@
         .edit-btn { background: #4a90e2; }
         .del-btn { background: #ff4d4d; }
 
-        /* 통계 탭 전용 */
-        .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
-        .stat-card { background: white; padding: 15px; border-radius: 12px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-        .stat-value { display: block; font-size: 22px; font-weight: bold; color: #007bff; }
-        .stat-label { font-size: 12px; color: #888; }
-        canvas { background: white; border-radius: 12px; padding: 10px; box-sizing: border-box; }
+        /* 통계 대시보드 스타일 */
+        .kpi-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 20px; width: 100%; }
+        .kpi-card { background: white; padding: 20px 15px; border-radius: 15px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .kpi-value { display: block; font-size: 28px; font-weight: 800; color: #333; margin-bottom: 5px; }
+        .kpi-label { font-size: 13px; color: #888; font-weight: 600; }
+        .kpi-sub { font-size: 11px; color: #aaa; margin-top: 5px; }
+        
+        /* 컬러 포인트 */
+        .txt-blue { color: #007bff; }
+        .txt-red { color: #ff4d4d; }
+        .txt-green { color: #2ecc71; }
 
         /* 학습 카드 */
         .card { background: white; border-radius: 20px; padding: 40px 20px; min-height: 300px; width: 100%; box-shadow: 0 10px 25px rgba(0,0,0,0.1); cursor: pointer; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; margin-bottom: 20px; }
@@ -42,25 +47,23 @@
 </head>
 <body>
 
-    <div id="loading">데이터 동기화 중...</div>
+    <div id="loading">데이터 로딩 중...</div>
 
     <nav>
         <div id="tab-manage" class="nav-item active" onclick="ui.switchTab('manage')">카드관리</div>
         <div id="tab-study" class="nav-item" onclick="ui.switchTab('study')">단어공부</div>
-        <div id="tab-stats" class="nav-item" onclick="ui.switchTab('stats')">통계</div>
+        <div id="tab-stats" class="nav-item" onclick="ui.switchTab('stats')">분석실</div>
     </nav>
 
     <div class="container">
         <div id="view-manage" class="screen active">
             <div class="card-box" style="text-align: center;">
-                <span id="due-count" style="font-weight:bold; color:#007bff; font-size:18px;">0</span>개 복습 필요
-                <span style="margin: 0 10px; color:#ddd;">|</span>
-                <span id="total-count" style="font-weight:bold; font-size:18px;">0</span>개 저장됨
+                <span id="due-count" style="font-weight:bold; color:#ff4d4d; font-size:20px;">0</span>개 복습 대기중
             </div>
             <div class="card-box">
-                <h3 style="margin-top:0;">새 카드 추가</h3>
-                <input type="text" id="new-front" placeholder="앞면 (트리거/상황)">
-                <input type="text" id="new-back" placeholder="뒷면 (영어 문장)">
+                <h3 style="margin-top:0;">⚡ 빠른 문장 추가</h3>
+                <input type="text" id="new-front" placeholder="앞면 (상황/트리거)">
+                <input type="text" id="new-back" placeholder="뒷면 (영어 표현)">
                 <button class="add-btn" onclick="logic.addCard()">저장하기</button>
             </div>
             <div id="card-list-area"></div>
@@ -77,34 +80,58 @@
                     <div id="card-text">로딩 중...</div>
                 </div>
                 <div id="rating-btns" style="display: none; gap: 10px;">
-                    <button style="flex:1; padding:15px; background:#ffadad; border:none; border-radius:10px;" onclick="logic.rateCard(1)">Again</button>
-                    <button style="flex:1; padding:15px; background:#caffbf; border:none; border-radius:10px;" onclick="logic.rateCard(5)">Easy</button>
+                    <button style="flex:1; padding:15px; background:#ffadad; border:none; border-radius:10px; font-weight:bold;" onclick="logic.rateCard(1)">Again (몰라)</button>
+                    <button style="flex:1; padding:15px; background:#caffbf; border:none; border-radius:10px; font-weight:bold;" onclick="logic.rateCard(5)">Easy (쉬워)</button>
                 </div>
             </div>
             <div id="no-study" style="text-align: center; display: block;">
-                <h2>🎉</h2><h3>오늘 분량 완료!</h3>
-                <button class="add-btn" onclick="ui.switchTab('manage')">돌아가기</button>
+                <h1 style="font-size: 50px; margin-bottom: 10px;">🔥</h1>
+                <h3>오늘 미션 완료!</h3>
+                <p>더 이상 복습할 카드가 없습니다.</p>
+                <button class="add-btn" onclick="ui.switchTab('stats')">성적표 확인하기</button>
             </div>
         </div>
 
         <div id="view-stats" class="screen">
-            <div class="stat-grid">
-                <div class="stat-card">
-                    <span id="stat-total" class="stat-value">0</span>
-                    <span class="stat-label">전체 카드</span>
+            <h3 style="margin: 0 0 15px 0; color:#555;">오늘의 성과</h3>
+            <div class="kpi-grid">
+                <div class="kpi-card">
+                    <span id="kpi-reviewed" class="kpi-value txt-blue">0</span>
+                    <span class="kpi-label">오늘 공부(횟수)</span>
                 </div>
-                <div class="stat-card">
-                    <span id="stat-learned" class="stat-value">0</span>
-                    <span class="stat-label">학습 진행됨</span>
+                <div class="kpi-card">
+                    <span id="kpi-due-tmr" class="kpi-value">0</span>
+                    <span class="kpi-label">내일 할 분량</span>
+                    <div class="kpi-sub">미리 겁먹지 마세요</div>
                 </div>
             </div>
+
+            <h3 style="margin: 20px 0 15px 0; color:#555;">뇌 구조 분석</h3>
+            <div class="kpi-grid">
+                <div class="kpi-card">
+                    <span id="kpi-total" class="kpi-value">0</span>
+                    <span class="kpi-label">총 저장 문장</span>
+                </div>
+                <div class="kpi-card">
+                    <span id="kpi-mature" class="kpi-value txt-green">0%</span>
+                    <span class="kpi-label">완전 암기율</span>
+                    <div class="kpi-sub">30일 이상 기억</div>
+                </div>
+                <div class="kpi-card">
+                    <span id="kpi-avg-ivl" class="kpi-value">0일</span>
+                    <span class="kpi-label">평균 기억 수명</span>
+                    <div class="kpi-sub">길수록 좋습니다</div>
+                </div>
+                <div class="kpi-card">
+                    <span id="kpi-leech" class="kpi-value txt-red">0</span>
+                    <span class="kpi-label">지옥의 카드</span>
+                    <div class="kpi-sub">계속 틀리는 문장</div>
+                </div>
+            </div>
+
             <div class="card-box">
-                <h4 style="margin-top:0;">학습 분포 (Interval 기준)</h4>
+                <h4 style="margin-top:0;">기억 분포 (Interval)</h4>
                 <canvas id="intervalChart" width="100%" height="200"></canvas>
-            </div>
-            <div class="card-box">
-                <h4 style="margin-top:0;">복습 스케줄 (향후 7일)</h4>
-                <canvas id="forecastChart" width="100%" height="200"></canvas>
             </div>
         </div>
     </div>
@@ -132,7 +159,7 @@
         let currentPage = 1;
         const PAGE_SIZE = 20;
         let editingCardId = null;
-        let chart1, chart2;
+        let chart1;
 
         window.ui = {
             switchTab: (tabName) => {
@@ -173,11 +200,40 @@
                 document.getElementById('page-info').innerText = `${currentPage} / ${totalPages}`;
             },
             renderStats: () => {
-                document.getElementById('stat-total').innerText = cards.length;
-                document.getElementById('stat-learned').innerText = cards.filter(c => c.repetitions > 0).length;
+                const todayStr = new Date().toISOString().split('T')[0];
+                const total = cards.length;
+                
+                // 1. KPI 계산
+                // 오늘 공부 횟수 (오늘 날짜로 갱신된 카드 수 - *완벽한 로그는 아니지만 근사치*)
+                // 실제로는 lastReviewDate 필드가 있어야 정확하나, 현재 로직상 오늘 갱신된 nextReview 등으로 추정 가능
+                // 이번 업데이트부터 lastReviewDate를 기록하므로 오늘부터 카운트됨.
+                const reviewedToday = cards.filter(c => c.lastReviewDate === todayStr).length;
+                
+                // 내일 할 것
+                const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
+                const tmrStr = tomorrow.toISOString().split('T')[0];
+                const dueTmr = cards.filter(c => c.nextReview === tmrStr).length;
 
-                // 1. Interval 분포 차트 (얼마나 장기기억으로 갔나?)
-                const intervals = [0, 0, 0, 0]; // 0-1일, 2-7일, 8-30일, 30일+
+                // 완전 암기 (Mature): Interval > 21일
+                const matureCnt = cards.filter(c => c.interval > 21).length;
+                const matureRate = total > 0 ? Math.round((matureCnt / total) * 100) : 0;
+
+                // 평균 기억 수명
+                const avgIvl = total > 0 ? Math.round(cards.reduce((acc, c) => acc + c.interval, 0) / total) : 0;
+
+                // 지옥의 카드 (Leech): EaseFactor가 1.5 미만 (자주 틀림)
+                const leeches = cards.filter(c => c.easeFactor < 1.5).length;
+
+                // UI 적용
+                document.getElementById('kpi-reviewed').innerText = reviewedToday;
+                document.getElementById('kpi-due-tmr').innerText = dueTmr;
+                document.getElementById('kpi-total').innerText = total;
+                document.getElementById('kpi-mature').innerText = `${matureRate}%`;
+                document.getElementById('kpi-avg-ivl').innerText = `${avgIvl}일`;
+                document.getElementById('kpi-leech').innerText = leeches;
+
+                // 차트 그리기
+                const intervals = [0, 0, 0, 0];
                 cards.forEach(c => {
                     if (c.interval <= 1) intervals[0]++;
                     else if (c.interval <= 7) intervals[1]++;
@@ -189,26 +245,10 @@
                 chart1 = new Chart(document.getElementById('intervalChart'), {
                     type: 'doughnut',
                     data: {
-                        labels: ['단기', '중기', '장기', '완전학습'],
+                        labels: ['신규/재학습', '단기 기억', '중기 기억', '장기 기억'],
                         datasets: [{ data: intervals, backgroundColor: ['#ffadad', '#ffd6a5', '#fdffb6', '#caffbf'] }]
-                    }
-                });
-
-                // 2. 향후 복습 스케줄 (일주일치)
-                const forecast = new Array(7).fill(0);
-                const today = new Date();
-                cards.forEach(c => {
-                    const diff = Math.ceil((new Date(c.nextReview) - today) / (1000*60*60*24));
-                    if (diff >= 0 && diff < 7) forecast[diff]++;
-                });
-
-                if(chart2) chart2.destroy();
-                chart2 = new Chart(document.getElementById('forecastChart'), {
-                    type: 'bar',
-                    data: {
-                        labels: ['오늘', '내일', 'D+2', 'D+3', 'D+4', 'D+5', 'D+6'],
-                        datasets: [{ label: '복습 카드수', data: forecast, backgroundColor: '#007bff' }]
-                    }
+                    },
+                    options: { maintainAspectRatio: false }
                 });
             }
         };
@@ -220,18 +260,19 @@
                 cards = docSnap.exists() ? (docSnap.data().list || []) : [];
                 ui.renderList();
                 document.getElementById('due-count').innerText = cards.filter(c => c.nextReview <= new Date().toISOString().split('T')[0]).length;
-                document.getElementById('total-count').innerText = cards.length;
                 document.getElementById('loading').style.display = 'none';
             },
             saveToDB: async () => {
                 await setDoc(doc(db, "anki", DOC_ID), { list: cards });
-                logic.loadCards();
+                // 리스트만 갱신 (전체 로드 X)
+                ui.renderList();
+                document.getElementById('due-count').innerText = cards.filter(c => c.nextReview <= new Date().toISOString().split('T')[0]).length;
             },
             addCard: async () => {
                 const f = document.getElementById('new-front').value;
                 const b = document.getElementById('new-back').value;
                 if(!f || !b) return;
-                cards.push({ id: Date.now(), front: f, back: b, interval: 0, repetitions: 0, easeFactor: 2.5, nextReview: new Date().toISOString().split('T')[0] });
+                cards.push({ id: Date.now(), front: f, back: b, interval: 0, repetitions: 0, easeFactor: 2.5, nextReview: new Date().toISOString().split('T')[0], lastReviewDate: '' });
                 await logic.saveToDB();
                 document.getElementById('new-front').value = ''; document.getElementById('new-back').value = '';
             },
@@ -269,10 +310,20 @@
                     else interval = Math.round(interval * easeFactor);
                     repetitions++;
                 } else { repetitions = 0; interval = 1; }
+                
+                // Ease Factor 하한선 설정
+                if (easeFactor < 1.3) easeFactor = 1.3;
+
                 const nextDate = new Date();
                 nextDate.setDate(nextDate.getDate() + interval);
-                currentCard.interval = interval; currentCard.repetitions = repetitions;
+                
+                // 데이터 갱신
+                currentCard.interval = interval; 
+                currentCard.repetitions = repetitions;
+                currentCard.easeFactor = easeFactor;
                 currentCard.nextReview = nextDate.toISOString().split('T')[0];
+                currentCard.lastReviewDate = new Date().toISOString().split('T')[0]; // 오늘 공부 기록 추가
+
                 await logic.saveToDB();
                 logic.prepareStudy();
             }
