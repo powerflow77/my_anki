@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Anki Pro (Fast Text Mode)</title>
+    <title>Anki Pro (Final KST Ver)</title>
     <style>
         /* 기본 설정 */
         body { font-family: 'Apple SD Gothic Neo', sans-serif; background-color: #f0f2f5; margin: 0; display: flex; flex-direction: column; height: 100vh; }
@@ -13,41 +13,23 @@
         .nav-item { font-weight: bold; color: #aaa; cursor: pointer; padding: 5px 10px; font-size: 15px; flex: 1; text-align: center; }
         .nav-item.active { color: black; border-bottom: 2px solid black; }
         
-        /* 컨테이너 및 스크린 (너비 확장 450px -> 600px) */
+        /* 컨테이너 */
         .container { flex: 1; padding: 15px; display: flex; flex-direction: column; align-items: center; overflow-y: auto; }
         .screen { width: 100%; max-width: 600px; display: none; } 
         .screen.active { display: block; } 
         
-        /* 공통 박스 스타일 */
+        /* 카드 박스 */
         .card-box { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 15px; width: 100%; box-sizing: border-box; }
         input { width: 100%; padding: 12px; margin: 5px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
         .add-btn { background: black; color: white; width: 100%; padding: 12px; margin-top: 10px; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; }
         
-        /* 리스트 아이템 (버튼 꼬임 방지) */
+        /* 리스트 아이템 */
         .card-item { 
-            background: white; 
-            padding: 15px; 
-            border-radius: 10px; 
-            margin-bottom: 10px; 
-            box-shadow: 0 1px 2px rgba(0,0,0,0.1); 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; /* 수직 중앙 정렬 */
-            gap: 10px;
+            background: white; padding: 15px; border-radius: 10px; margin-bottom: 10px; 
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; gap: 10px;
         }
-        
-        .card-text-group {
-            flex-grow: 1; /* 남은 공간 다 차지 */
-            overflow: hidden; /* 내용 넘치면 숨김 */
-        }
-
-        /* 버튼 그룹 고정 (절대 줄바꿈 안됨) */
-        .card-btn-group {
-            display: flex;
-            gap: 6px;
-            flex-shrink: 0; /* 공간 좁아져도 절대 안 찌그러짐 */
-            white-space: nowrap;
-        }
+        .card-text-group { flex-grow: 1; overflow: hidden; }
+        .card-btn-group { display: flex; gap: 6px; flex-shrink: 0; white-space: nowrap; }
 
         .mini-btn { border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold; color: white; }
         .edit-btn { background: #4a90e2; }
@@ -55,17 +37,16 @@
         .save-btn { background: #2ecc71; }
         .cancel-btn { background: #aaa; }
 
-        /* 통계 텍스트 그리드 */
+        /* 통계 그리드 */
         .kpi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 15px; width: 100%; }
         .kpi-card { background: white; padding: 20px 15px; border-radius: 12px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
         .kpi-value { display: block; font-size: 26px; font-weight: 800; color: #333; margin-bottom: 5px; }
         .kpi-label { font-size: 13px; color: #888; font-weight: 600; }
-        .kpi-sub { font-size: 11px; color: #aaa; margin-top: 5px; }
         
         /* 상세 통계 테이블 */
         .stat-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
-        .stat-table th { text-align: left; color: #888; padding: 8px 0; border-bottom: 1px solid #eee; }
-        .stat-table td { text-align: right; font-weight: bold; padding: 8px 0; border-bottom: 1px solid #eee; }
+        .stat-table th { text-align: left; color: #888; padding: 10px 0; border-bottom: 1px solid #eee; }
+        .stat-table td { text-align: right; font-weight: bold; padding: 10px 0; border-bottom: 1px solid #eee; color: #333; }
 
         /* 학습 카드 */
         .card { background: white; border-radius: 15px; padding: 40px 20px; min-height: 250px; width: 100%; box-shadow: 0 5px 15px rgba(0,0,0,0.05); cursor: pointer; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; margin-bottom: 20px; box-sizing: border-box; }
@@ -74,15 +55,15 @@
         
         #loading { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.95); z-index:999; display: flex; justify-content: center; align-items: center; font-weight: bold; color: #333; }
         
-        /* 색상 유틸 */
         .txt-blue { color: #007bff; }
         .txt-red { color: #ff4d4d; }
         .txt-green { color: #2ecc71; }
+        .txt-fire { color: #ff9f43; }
     </style>
 </head>
 <body>
 
-    <div id="loading">로딩 중...</div>
+    <div id="loading">데이터 로딩 중...</div>
 
     <nav>
         <div id="tab-manage" class="nav-item active" onclick="ui.switchTab('manage')">카드관리</div>
@@ -124,54 +105,39 @@
             </div>
             <div id="no-study" style="text-align: center; display: block;">
                 <h1 style="font-size: 40px; margin-bottom: 5px;">🔥</h1>
-                <h3>오늘 미션 완료!</h3>
-                <p style="color:#666;">복습할 카드가 없습니다.</p>
-                <button class="add-btn" onclick="ui.switchTab('stats')">성적표 보기</button>
+                <h3>오늘 분량 끝!</h3>
+                <p style="color:#666;">고생하셨습니다.</p>
+                <button class="add-btn" onclick="ui.switchTab('stats')">기록 확인하기</button>
             </div>
         </div>
 
         <div id="view-stats" class="screen">
-            <h3 style="margin: 0 0 10px 0; color:#444;">오늘의 활동</h3>
+            <h3 style="margin: 0 0 10px 0; color:#444;">학습 현황</h3>
             <div class="kpi-grid">
                 <div class="kpi-card">
-                    <span id="kpi-reviewed" class="kpi-value txt-blue">0</span>
-                    <span class="kpi-label">오늘 공부(횟수)</span>
+                    <span id="kpi-streak" class="kpi-value txt-fire">0일</span>
+                    <span class="kpi-label">연속 학습 🔥</span>
                 </div>
                 <div class="kpi-card">
-                    <span id="kpi-due-tmr" class="kpi-value">0</span>
-                    <span class="kpi-label">내일 할 분량</span>
-                </div>
-            </div>
-
-            <h3 style="margin: 15px 0 10px 0; color:#444;">학습 상태</h3>
-            <div class="kpi-grid">
-                <div class="kpi-card">
-                    <span id="kpi-total" class="kpi-value">0</span>
-                    <span class="kpi-label">총 카드</span>
-                </div>
-                <div class="kpi-card">
-                    <span id="kpi-mature" class="kpi-value txt-green">0%</span>
-                    <span class="kpi-label">완전 암기율</span>
-                    <div class="kpi-sub">21일 이상 기억</div>
-                </div>
-                <div class="kpi-card">
-                    <span id="kpi-avg-ivl" class="kpi-value">0일</span>
-                    <span class="kpi-label">평균 기억 수명</span>
-                </div>
-                <div class="kpi-card">
-                    <span id="kpi-leech" class="kpi-value txt-red">0</span>
-                    <span class="kpi-label">지옥의 카드</span>
-                    <div class="kpi-sub">자주 틀림</div>
+                    <span id="kpi-today-count" class="kpi-value txt-blue">0</span>
+                    <span class="kpi-label">오늘 복습량</span>
                 </div>
             </div>
 
             <div class="card-box">
-                <h4 style="margin-top:0; border-bottom:1px solid #eee; padding-bottom:10px;">기억 단계별 분포</h4>
+                <h4 style="margin-top:0; border-bottom:1px solid #eee; padding-bottom:10px;">📅 최근 7일 학습량</h4>
+                <table class="stat-table" id="daily-log-table">
+                    <tr><td style="text-align:center; color:#888;">기록 로딩 중...</td></tr>
+                </table>
+            </div>
+
+            <div class="card-box">
+                <h4 style="margin-top:0; border-bottom:1px solid #eee; padding-bottom:10px;">🧠 기억 단계 분포</h4>
                 <table class="stat-table">
-                    <tr><th>🔴 신규/재학습 (1일 이하)</th><td id="st-new">0개</td></tr>
-                    <tr><th>🟠 단기 기억 (2~7일)</th><td id="st-short">0개</td></tr>
-                    <tr><th>🟡 중기 기억 (8~30일)</th><td id="st-mid">0개</td></tr>
-                    <tr><th>🟢 장기 기억 (30일 이상)</th><td id="st-long">0개</td></tr>
+                    <tr><th>🔴 신규/재학습</th><td id="st-new">0개</td></tr>
+                    <tr><th>🟠 단기 기억</th><td id="st-short">0개</td></tr>
+                    <tr><th>🟡 중기 기억</th><td id="st-mid">0개</td></tr>
+                    <tr><th>🟢 장기 기억</th><td id="st-long">0개</td></tr>
                 </table>
             </div>
         </div>
@@ -196,10 +162,26 @@
         const DOC_ID = "my_cards_data";
 
         let cards = [];
+        let studyLog = {}; 
         let currentCard = null;
         let currentPage = 1;
         const PAGE_SIZE = 20;
         let editingCardId = null;
+
+        // ★ [핵심] 로컬 시간(한국 시간) 기준 날짜 반환 함수
+        const getTodayStr = () => {
+            const d = new Date();
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        };
+
+        const getDayLabel = (dateStr) => {
+            const date = new Date(dateStr);
+            const days = ['일', '월', '화', '수', '목', '금', '토'];
+            return `${date.getMonth()+1}/${date.getDate()} (${days[date.getDay()]})`;
+        };
 
         window.ui = {
             switchTab: (tabName) => {
@@ -227,7 +209,6 @@
                     div.className = 'card-item';
                     
                     if(editingCardId === card.id) {
-                        // 수정 모드
                         div.innerHTML = `
                             <div style="width:100%;">
                                 <input id="ef-${card.id}" value="${card.front}" style="margin-bottom:5px;">
@@ -236,10 +217,8 @@
                                     <button class="mini-btn save-btn" style="flex:1;" onclick="logic.updateCard(${card.id})">저장</button>
                                     <button class="mini-btn cancel-btn" style="flex:1;" onclick="logic.startEdit(null)">취소</button>
                                 </div>
-                            </div>
-                        `;
+                            </div>`;
                     } else {
-                        // 일반 모드 (버튼 꼬임 방지 적용)
                         div.innerHTML = `
                             <div class="card-text-group">
                                 <div style="font-weight:bold; color:#333; margin-bottom:4px; font-size:16px;">${card.front}</div>
@@ -248,38 +227,62 @@
                             <div class="card-btn-group">
                                 <button class="mini-btn edit-btn" onclick="logic.startEdit(${card.id})">수정</button>
                                 <button class="mini-btn del-btn" onclick="logic.deleteCard(${card.id})">삭제</button>
-                            </div>
-                        `;
+                            </div>`;
                     }
                     listArea.appendChild(div);
                 });
                 document.getElementById('page-info').innerText = `${currentPage} / ${totalPages}`;
             },
             renderStats: () => {
-                const todayStr = new Date().toISOString().split('T')[0];
-                const total = cards.length;
+                const todayStr = getTodayStr();
+                let tableHtml = '';
+                let streak = 0;
                 
-                // KPI 계산
-                const reviewedToday = cards.filter(c => c.lastReviewDate === todayStr).length;
-                
-                const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
-                const tmrStr = tomorrow.toISOString().split('T')[0];
-                const dueTmr = cards.filter(c => c.nextReview === tmrStr).length;
+                // 연속 학습일(Streak) 계산 로직
+                let streakCursor = new Date(); 
+                // 오늘 데이터 없으면 어제부터 확인
+                if (!studyLog[getTodayStr()]) {
+                    streakCursor.setDate(streakCursor.getDate() - 1);
+                }
 
-                const matureCnt = cards.filter(c => c.interval > 21).length;
-                const matureRate = total > 0 ? Math.round((matureCnt / total) * 100) : 0;
-                const avgIvl = total > 0 ? Math.round(cards.reduce((acc, c) => acc + c.interval, 0) / total) : 0;
-                const leeches = cards.filter(c => c.easeFactor < 1.5).length;
+                while(true) {
+                    const y = streakCursor.getFullYear();
+                    const m = String(streakCursor.getMonth() + 1).padStart(2,'0');
+                    const d = String(streakCursor.getDate()).padStart(2,'0');
+                    const sStr = `${y}-${m}-${d}`;
 
-                // 텍스트 매핑
-                document.getElementById('kpi-reviewed').innerText = reviewedToday;
-                document.getElementById('kpi-due-tmr').innerText = dueTmr;
-                document.getElementById('kpi-total').innerText = total;
-                document.getElementById('kpi-mature').innerText = `${matureRate}%`;
-                document.getElementById('kpi-avg-ivl').innerText = `${avgIvl}일`;
-                document.getElementById('kpi-leech').innerText = leeches;
+                    if(studyLog[sStr] && studyLog[sStr] > 0) {
+                        streak++;
+                        streakCursor.setDate(streakCursor.getDate() - 1);
+                    } else {
+                        break;
+                    }
+                }
 
-                // 분포 테이블 계산
+                // 최근 7일 테이블
+                for (let i = 0; i < 7; i++) {
+                    const d = new Date();
+                    d.setDate(d.getDate() - i);
+                    
+                    const y = d.getFullYear();
+                    const m = String(d.getMonth() + 1).padStart(2,'0');
+                    const day = String(d.getDate()).padStart(2,'0');
+                    const dStr = `${y}-${m}-${day}`;
+
+                    const count = studyLog[dStr] || 0;
+                    const label = (i === 0) ? "오늘" : getDayLabel(dStr);
+                    const colorStyle = count > 0 ? 'color:#007bff;' : 'color:#ddd;';
+                    
+                    tableHtml += `<tr>
+                        <th>${label}</th>
+                        <td style="${colorStyle} font-size:16px;">${count}회</td>
+                    </tr>`;
+                }
+
+                document.getElementById('daily-log-table').innerHTML = tableHtml;
+                document.getElementById('kpi-streak').innerText = `${streak}일`;
+                document.getElementById('kpi-today-count').innerText = studyLog[todayStr] || 0;
+
                 const ivls = [0, 0, 0, 0];
                 cards.forEach(c => {
                     if (c.interval <= 1) ivls[0]++;
@@ -299,22 +302,29 @@
                 document.getElementById('loading').style.display = 'flex';
                 try {
                     const docSnap = await getDoc(doc(db, "anki", DOC_ID));
-                    cards = docSnap.exists() ? (docSnap.data().list || []) : [];
+                    if (docSnap.exists()) {
+                        const data = docSnap.data();
+                        cards = data.list || [];
+                        studyLog = data.studyLog || {};
+                    } else {
+                        cards = [];
+                        studyLog = {};
+                    }
                     ui.renderList();
-                    document.getElementById('due-count').innerText = cards.filter(c => c.nextReview <= new Date().toISOString().split('T')[0]).length;
+                    document.getElementById('due-count').innerText = cards.filter(c => c.nextReview <= getTodayStr()).length;
                 } catch(e) { console.error(e); }
                 document.getElementById('loading').style.display = 'none';
             },
             saveToDB: async () => {
-                await setDoc(doc(db, "anki", DOC_ID), { list: cards });
-                ui.renderList(); // 전체 로드 없이 리스트만 갱신
-                document.getElementById('due-count').innerText = cards.filter(c => c.nextReview <= new Date().toISOString().split('T')[0]).length;
+                await setDoc(doc(db, "anki", DOC_ID), { list: cards, studyLog: studyLog });
+                ui.renderList();
+                document.getElementById('due-count').innerText = cards.filter(c => c.nextReview <= getTodayStr()).length;
             },
             addCard: async () => {
                 const f = document.getElementById('new-front').value;
                 const b = document.getElementById('new-back').value;
                 if(!f || !b) return;
-                cards.push({ id: Date.now(), front: f, back: b, interval: 0, repetitions: 0, easeFactor: 2.5, nextReview: new Date().toISOString().split('T')[0], lastReviewDate: '' });
+                cards.push({ id: Date.now(), front: f, back: b, interval: 0, repetitions: 0, easeFactor: 2.5, nextReview: getTodayStr(), lastReviewDate: '' });
                 await logic.saveToDB();
                 document.getElementById('new-front').value = ''; document.getElementById('new-back').value = '';
             },
@@ -335,12 +345,11 @@
                 if (nextPage >= 1 && nextPage <= totalPages) {
                     currentPage = nextPage; 
                     ui.renderList();
-                    document.querySelector('.container').scrollTop = 0; // 페이지 넘기면 맨 위로
+                    document.querySelector('.container').scrollTop = 0;
                 }
             },
             prepareStudy: () => {
-                const today = new Date().toISOString().split('T')[0];
-                const due = cards.filter(c => c.nextReview <= today);
+                const due = cards.filter(c => c.nextReview <= getTodayStr());
                 if(due.length > 0) {
                     currentCard = due[0];
                     document.getElementById('study-content').style.display = 'block';
@@ -362,12 +371,24 @@
                 } else { repetitions = 0; interval = 1; }
                 if (easeFactor < 1.3) easeFactor = 1.3;
 
+                const todayStr = getTodayStr();
                 const nextDate = new Date();
                 nextDate.setDate(nextDate.getDate() + interval);
-                currentCard.interval = interval; currentCard.repetitions = repetitions;
+                
+                // 날짜 포맷팅 (YYYY-MM-DD)
+                const y = nextDate.getFullYear();
+                const m = String(nextDate.getMonth() + 1).padStart(2,'0');
+                const d = String(nextDate.getDate()).padStart(2,'0');
+                const nextDateStr = `${y}-${m}-${d}`;
+
+                currentCard.interval = interval; 
+                currentCard.repetitions = repetitions;
                 currentCard.easeFactor = easeFactor;
-                currentCard.nextReview = nextDate.toISOString().split('T')[0];
-                currentCard.lastReviewDate = new Date().toISOString().split('T')[0];
+                currentCard.nextReview = nextDateStr;
+                currentCard.lastReviewDate = todayStr;
+
+                if (!studyLog[todayStr]) studyLog[todayStr] = 0;
+                studyLog[todayStr]++;
 
                 await logic.saveToDB();
                 logic.prepareStudy();
