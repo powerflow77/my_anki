@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Anki Pro (Final KST Ver)</title>
+    <title>Anki Pro (Ultimate Stats)</title>
     <style>
         /* 기본 설정 */
         body { font-family: 'Apple SD Gothic Neo', sans-serif; background-color: #f0f2f5; margin: 0; display: flex; flex-direction: column; height: 100vh; }
@@ -37,16 +37,18 @@
         .save-btn { background: #2ecc71; }
         .cancel-btn { background: #aaa; }
 
-        /* 통계 그리드 */
+        /* 통계 그리드 (KPI 복구됨) */
         .kpi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 15px; width: 100%; }
         .kpi-card { background: white; padding: 20px 15px; border-radius: 12px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
         .kpi-value { display: block; font-size: 26px; font-weight: 800; color: #333; margin-bottom: 5px; }
         .kpi-label { font-size: 13px; color: #888; font-weight: 600; }
+        .kpi-sub { font-size: 11px; color: #aaa; margin-top: 5px; } /* 서브 텍스트 복구 */
         
         /* 상세 통계 테이블 */
         .stat-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
         .stat-table th { text-align: left; color: #888; padding: 10px 0; border-bottom: 1px solid #eee; }
         .stat-table td { text-align: right; font-weight: bold; padding: 10px 0; border-bottom: 1px solid #eee; color: #333; }
+        .stat-table tr:last-child th, .stat-table tr:last-child td { border-bottom: none; }
 
         /* 학습 카드 */
         .card { background: white; border-radius: 15px; padding: 40px 20px; min-height: 250px; width: 100%; box-shadow: 0 5px 15px rgba(0,0,0,0.05); cursor: pointer; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; margin-bottom: 20px; box-sizing: border-box; }
@@ -112,7 +114,7 @@
         </div>
 
         <div id="view-stats" class="screen">
-            <h3 style="margin: 0 0 10px 0; color:#444;">학습 현황</h3>
+            <h3 style="margin: 0 0 10px 0; color:#444;">오늘의 활동</h3>
             <div class="kpi-grid">
                 <div class="kpi-card">
                     <span id="kpi-streak" class="kpi-value txt-fire">0일</span>
@@ -121,6 +123,29 @@
                 <div class="kpi-card">
                     <span id="kpi-today-count" class="kpi-value txt-blue">0</span>
                     <span class="kpi-label">오늘 복습량</span>
+                </div>
+            </div>
+
+            <h3 style="margin: 15px 0 10px 0; color:#444;">뇌 구조 분석</h3>
+            <div class="kpi-grid">
+                <div class="kpi-card">
+                    <span id="kpi-total" class="kpi-value">0</span>
+                    <span class="kpi-label">총 저장 문장</span>
+                </div>
+                <div class="kpi-card">
+                    <span id="kpi-mature" class="kpi-value txt-green">0%</span>
+                    <span class="kpi-label">완전 암기율</span>
+                    <div class="kpi-sub">21일 이상 기억</div>
+                </div>
+                <div class="kpi-card">
+                    <span id="kpi-avg-ivl" class="kpi-value">0일</span>
+                    <span class="kpi-label">평균 기억 수명</span>
+                    <div class="kpi-sub">길수록 좋음</div>
+                </div>
+                <div class="kpi-card">
+                    <span id="kpi-leech" class="kpi-value txt-red">0</span>
+                    <span class="kpi-label">지옥의 카드</span>
+                    <div class="kpi-sub">자주 틀림</div>
                 </div>
             </div>
 
@@ -168,7 +193,7 @@
         const PAGE_SIZE = 20;
         let editingCardId = null;
 
-        // ★ [핵심] 로컬 시간(한국 시간) 기준 날짜 반환 함수
+        // ★ 로컬 타임(KST) 완벽 패치
         const getTodayStr = () => {
             const d = new Date();
             const year = d.getFullYear();
@@ -235,12 +260,24 @@
             },
             renderStats: () => {
                 const todayStr = getTodayStr();
+                const total = cards.length;
+
+                // 1. KPI 계산 (복구됨)
+                const matureCnt = cards.filter(c => c.interval > 21).length;
+                const matureRate = total > 0 ? Math.round((matureCnt / total) * 100) : 0;
+                const avgIvl = total > 0 ? Math.round(cards.reduce((acc, c) => acc + c.interval, 0) / total) : 0;
+                const leeches = cards.filter(c => c.easeFactor < 1.5).length;
+
+                document.getElementById('kpi-total').innerText = total;
+                document.getElementById('kpi-mature').innerText = `${matureRate}%`;
+                document.getElementById('kpi-avg-ivl').innerText = `${avgIvl}일`;
+                document.getElementById('kpi-leech').innerText = leeches;
+
+                // 2. 연속 학습일(Streak) 및 로그 테이블
                 let tableHtml = '';
                 let streak = 0;
                 
-                // 연속 학습일(Streak) 계산 로직
                 let streakCursor = new Date(); 
-                // 오늘 데이터 없으면 어제부터 확인
                 if (!studyLog[getTodayStr()]) {
                     streakCursor.setDate(streakCursor.getDate() - 1);
                 }
@@ -259,7 +296,6 @@
                     }
                 }
 
-                // 최근 7일 테이블
                 for (let i = 0; i < 7; i++) {
                     const d = new Date();
                     d.setDate(d.getDate() - i);
@@ -283,6 +319,7 @@
                 document.getElementById('kpi-streak').innerText = `${streak}일`;
                 document.getElementById('kpi-today-count').innerText = studyLog[todayStr] || 0;
 
+                // 3. 기억 분포
                 const ivls = [0, 0, 0, 0];
                 cards.forEach(c => {
                     if (c.interval <= 1) ivls[0]++;
@@ -375,7 +412,6 @@
                 const nextDate = new Date();
                 nextDate.setDate(nextDate.getDate() + interval);
                 
-                // 날짜 포맷팅 (YYYY-MM-DD)
                 const y = nextDate.getFullYear();
                 const m = String(nextDate.getMonth() + 1).padStart(2,'0');
                 const d = String(nextDate.getDate()).padStart(2,'0');
