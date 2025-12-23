@@ -3,27 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>나만의 단어장 (심플 버전)</title>
+    <title>나만의 단어장 (Pagination)</title>
     <style>
-        /* 기본 스타일 */
+        /* 기존 스타일 유지 */
         body { font-family: 'Apple SD Gothic Neo', sans-serif; background-color: #f0f2f5; margin: 0; display: flex; flex-direction: column; height: 100vh; }
-        
-        /* 네비게이션바 - 문장공부 삭제로 2칸으로 조정 */
         nav { background: white; padding: 15px 5px; display: flex; justify-content: space-around; border-bottom: 1px solid #ddd; flex-shrink: 0; }
         .nav-item { font-weight: bold; color: #aaa; cursor: pointer; padding: 5px 10px; font-size: 14px; flex: 1; text-align: center; }
         .nav-item.active { color: black; border-bottom: 2px solid black; }
-        
         .container { flex: 1; padding: 20px; display: flex; flex-direction: column; align-items: center; overflow-y: auto; }
         .screen { width: 100%; max-width: 450px; display: none; } 
         .screen.active { display: block; } 
-
-        /* 공통 UI 요소 */
         .status-box { background: white; padding: 20px; border-radius: 15px; text-align: center; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
         .input-area { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px;}
         input { width: 100%; padding: 12px; margin: 5px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
         .add-btn { background: black; color: white; width: 100%; padding: 12px; margin-top: 10px; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; }
         
-        /* 카드 관리 리스트 */
+        /* 카드 리스트 스타일 */
         .list-title { margin: 20px 0 10px 0; font-weight: bold; color: #555; display: flex; justify-content: space-between; align-items: center; }
         .card-item { background: white; padding: 15px; border-radius: 10px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
         .card-info { text-align: left; width: 70%; }
@@ -31,14 +26,18 @@
         .card-back { font-size: 14px; color: #888; }
         .del-btn { background: #ff4d4d; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold; }
 
-        /* 단어 공부 카드 */
+        /* 페이지네이션 컨트롤 */
+        .pagination-ctrl { display: flex; justify-content: center; align-items: center; gap: 20px; margin-top: 20px; padding-bottom: 40px; }
+        .page-btn { background: white; border: 1px solid #ddd; padding: 8px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .page-btn:disabled { color: #ccc; cursor: not-allowed; }
+        #page-info { font-weight: bold; font-size: 14px; color: #555; }
+
+        /* 단어 공부 카드 스타일 */
         .card { background: white; border-radius: 20px; padding: 40px 20px; min-height: 300px; width: 100%; box-shadow: 0 10px 25px rgba(0,0,0,0.1); cursor: pointer; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; margin-bottom: 20px; }
         .front { font-size: 30px; font-weight: bold; color: #333; }
         .back { font-size: 24px; color: #007bff; margin-top: 30px; font-weight: bold; }
         .btn-group { display: flex; gap: 10px; width: 100%; }
         .btn-group button { flex: 1; padding: 15px; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; font-size: 14px; }
-        
-        /* 로딩 화면 */
         #loading { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.9); z-index:999; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 20px; color: #333; }
     </style>
 </head>
@@ -65,8 +64,18 @@
                 <input type="text" id="new-back" placeholder="뒷면 (한글)">
                 <button class="add-btn" onclick="logic.addCard()">저장하기</button>
             </div>
-            <div class="list-title"><span>서버 저장 목록</span> <button onclick="logic.loadCards()" style="background:none; border:none; color:blue; cursor:pointer;">🔄 새로고침</button></div>
+            <div class="list-title">
+                <span>서버 저장 목록</span> 
+                <button onclick="logic.loadCards()" style="background:none; border:none; color:blue; cursor:pointer;">🔄 새로고침</button>
+            </div>
+            
             <div id="card-list-area"></div>
+
+            <div class="pagination-ctrl">
+                <button class="page-btn" id="prev-btn" onclick="logic.changePage(-1)">이전</button>
+                <span id="page-info">1 / 1</span>
+                <button class="page-btn" id="next-btn" onclick="logic.changePage(1)">다음</button>
+            </div>
         </div>
 
         <div id="view-study" class="screen">
@@ -109,6 +118,8 @@
 
         let cards = [];
         let currentCard = null;
+        let currentPage = 1;
+        const PAGE_SIZE = 20;
 
         window.ui = {
             switchTab: (tabName) => {
@@ -116,7 +127,6 @@
                 document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
                 document.getElementById(`tab-${tabName}`).classList.add('active');
                 document.getElementById(`view-${tabName}`).classList.add('active');
-                
                 if (tabName === 'study') logic.prepareStudy();
             },
             flipCard: () => {
@@ -124,6 +134,44 @@
                 document.getElementById('card-text').innerHTML = `<div class="front">${currentCard.front}</div><div class="back">${currentCard.back}</div>`;
                 document.getElementById('rating-btns').style.display = 'flex';
                 document.getElementById('guide-text').style.display = 'none';
+            },
+            renderList: () => {
+                const listArea = document.getElementById('card-list-area');
+                listArea.innerHTML = '';
+                
+                // 역순 정렬 (최신순)
+                const reversedCards = [...cards].reverse();
+                
+                // 페이지네이션 계산
+                const totalPages = Math.ceil(cards.length / PAGE_SIZE) || 1;
+                if (currentPage > totalPages) currentPage = totalPages;
+
+                const start = (currentPage - 1) * PAGE_SIZE;
+                const end = start + PAGE_SIZE;
+                const pagedCards = reversedCards.slice(start, end);
+
+                pagedCards.forEach(card => {
+                    const div = document.createElement('div');
+                    div.className = 'card-item';
+                    div.innerHTML = `
+                        <div class="card-info">
+                            <div class="card-front">${card.front}</div>
+                            <div class="card-back">${card.back}</div>
+                        </div>
+                        <button class="del-btn" onclick="logic.deleteCard(${card.id})">삭제</button>
+                    `;
+                    listArea.appendChild(div);
+                });
+
+                // 페이지 정보 업데이트
+                document.getElementById('page-info').innerText = `${currentPage} / ${totalPages}`;
+                document.getElementById('prev-btn').disabled = (currentPage === 1);
+                document.getElementById('next-btn').disabled = (currentPage === totalPages);
+            },
+            updateStats: () => {
+                const today = new Date().toISOString().split('T')[0];
+                document.getElementById('due-count').innerText = cards.filter(c => c.nextReview <= today).length;
+                document.getElementById('total-count').innerText = cards.length;
             }
         };
 
@@ -137,38 +185,32 @@
                     ui.renderList();
                     ui.updateStats();
                 } catch (e) {
-                    alert("데이터 로드 실패: " + e.message);
+                    alert("로드 실패: " + e.message);
                 }
                 document.getElementById('loading').style.display = 'none';
             },
-
             saveToDB: async () => {
                 document.getElementById('loading').style.display = 'flex';
                 await setDoc(doc(db, "anki", DOC_ID), { list: cards });
                 ui.updateStats();
                 document.getElementById('loading').style.display = 'none';
             },
-
             addCard: async () => {
-                const front = document.getElementById('new-front').value;
-                const back = document.getElementById('new-back').value;
-                if (!front || !back) return alert('내용을 입력하세요');
-
+                const f = document.getElementById('new-front').value;
+                const b = document.getElementById('new-back').value;
+                if (!f || !b) return alert('입력해주세요');
                 const newCard = {
-                    id: Date.now(),
-                    front: front, back: back,
+                    id: Date.now(), front: f, back: b,
                     interval: 0, repetitions: 0, easeFactor: 2.5,
                     nextReview: new Date().toISOString().split('T')[0]
                 };
                 cards.push(newCard);
                 await logic.saveToDB();
-                
                 document.getElementById('new-front').value = '';
                 document.getElementById('new-back').value = '';
+                currentPage = 1; // 새 단어 추가 시 첫 페이지로
                 ui.renderList();
-                alert('저장되었습니다!');
             },
-
             deleteCard: async (id) => {
                 if(confirm('삭제하시겠습니까?')) {
                     cards = cards.filter(c => c.id !== id);
@@ -176,7 +218,12 @@
                     ui.renderList();
                 }
             },
-
+            changePage: (offset) => {
+                currentPage += offset;
+                ui.renderList();
+                // 리스트 최상단으로 스크롤 이동
+                document.querySelector('.container').scrollTop = 0;
+            },
             rateCard: async (quality) => {
                 let { interval, repetitions, easeFactor } = currentCard;
                 if (quality >= 3) {
@@ -190,19 +237,15 @@
                 }
                 easeFactor += (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
                 if (easeFactor < 1.3) easeFactor = 1.3;
-
                 const nextDate = new Date();
                 nextDate.setDate(nextDate.getDate() + interval);
-                
                 currentCard.interval = interval;
                 currentCard.repetitions = repetitions;
                 currentCard.easeFactor = easeFactor;
                 currentCard.nextReview = nextDate.toISOString().split('T')[0];
-
                 await logic.saveToDB();
                 logic.prepareStudy();
             },
-
             prepareStudy: () => {
                 const today = new Date().toISOString().split('T')[0];
                 const dueCards = cards.filter(c => c.nextReview <= today);
@@ -218,22 +261,6 @@
                     document.getElementById('no-study').style.display = 'block';
                 }
             }
-        };
-
-        ui.renderList = () => {
-            const listArea = document.getElementById('card-list-area');
-            listArea.innerHTML = '';
-            [...cards].reverse().forEach(card => {
-                const div = document.createElement('div');
-                div.className = 'card-item';
-                div.innerHTML = `<div class="card-info"><div class="card-front">${card.front}</div><div class="card-back">${card.back}</div></div><button class="del-btn" onclick="logic.deleteCard(${card.id})">삭제</button>`;
-                listArea.appendChild(div);
-            });
-        };
-        ui.updateStats = () => {
-            const today = new Date().toISOString().split('T')[0];
-            document.getElementById('due-count').innerText = cards.filter(c => c.nextReview <= today).length;
-            document.getElementById('total-count').innerText = cards.length;
         };
 
         logic.loadCards();
