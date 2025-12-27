@@ -3,21 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>나만의 단어장 (Pro)</title>
+    <title>나만의 단어장 (Final)</title>
     <style>
         /* 기본 스타일 */
         body { font-family: 'Apple SD Gothic Neo', sans-serif; background-color: #f0f2f5; margin: 0; display: flex; flex-direction: column; height: 100vh; }
         
-        /* 네비게이션바 */
+        /* 네비게이션바 (탭 2개로 복구) */
         nav { background: white; padding: 15px 5px; display: flex; justify-content: space-around; border-bottom: 1px solid #ddd; flex-shrink: 0; }
-        .nav-item { font-weight: bold; color: #aaa; cursor: pointer; padding: 5px 10px; font-size: 14px; }
+        .nav-item { font-weight: bold; color: #aaa; cursor: pointer; padding: 10px 20px; font-size: 16px; }
         .nav-item.active { color: black; border-bottom: 2px solid black; }
         
         .container { flex: 1; padding: 20px; display: flex; flex-direction: column; align-items: center; overflow-y: auto; }
         .screen { width: 100%; max-width: 450px; display: none; } 
         .screen.active { display: block; } 
 
-        /* 현황판 (New / Review 분리) */
+        /* 통계(현황) 박스 */
         .status-box { background: white; padding: 20px; border-radius: 15px; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
         .stat-row { display: flex; justify-content: space-around; align-items: center; text-align: center; }
         .stat-label { font-size: 11px; color: #888; margin-bottom: 5px; font-weight: bold; letter-spacing: 1px; }
@@ -41,17 +41,12 @@
         .front { font-size: 30px; font-weight: bold; color: #333; }
         .back { font-size: 24px; color: #007bff; margin-top: 30px; font-weight: bold; }
         
-        /* 버튼 그룹 */
+        /* 버튼 그룹 (시간 표시용) */
         .btn-group { display: flex; gap: 8px; width: 100%; }
         .btn-group button { flex: 1; padding: 12px 5px; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; font-size: 13px; color: #333; box-shadow: 0 2px 5px rgba(0,0,0,0.1); transition: transform 0.1s; }
         .btn-group button:active { transform: scale(0.95); }
-        
-        /* 문장 공부 */
-        .random-word-box { background: #fffbe6; border: 2px dashed #ffd6a5; border-radius: 15px; padding: 20px; margin-top: 20px; text-align: center; }
-        .word-tag { display: inline-block; background: white; border: 1px solid #ddd; padding: 10px 20px; margin: 5px; border-radius: 20px; font-weight: bold; font-size: 18px; color: #333; box-shadow: 0 2px 5px rgba(0,0,0,0.05); cursor: pointer; }
-        .word-meaning { display: block; font-size: 12px; color: #888; margin-top: 2px; font-weight: normal; }
 
-        /* 로딩 */
+        /* 로딩 화면 */
         #loading { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.9); z-index:999; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 20px; color: #333; }
     </style>
 </head>
@@ -61,12 +56,12 @@
 
     <nav>
         <div id="tab-manage" class="nav-item active" onclick="ui.switchTab('manage')">카드관리</div>
-        <div id="tab-study" class="nav-item" onclick="ui.switchTab('study')">단어공부</div>
-        <div id="tab-sentence" class="nav-item" onclick="ui.switchTab('sentence')">문장공부</div>
+        <div id="tab-study" class="nav-item" onclick="ui.switchTab('study')">학습하기</div>
     </nav>
 
     <div class="container">
         <div id="view-manage" class="screen active">
+            
             <div class="status-box">
                 <div class="stat-row">
                     <div>
@@ -117,21 +112,10 @@
                     <button id="btn-5" style="background:#caffbf" onclick="logic.rateCard(5)">Easy</button>
                 </div>
             </div>
+            
             <div id="no-study" style="text-align: center; display: block;">
                 <h2>🎉</h2><h3>오늘 공부 끝!</h3><p>복습할 카드가 없습니다.</p>
                 <button class="add-btn" onclick="ui.switchTab('manage')">관리 화면으로</button>
-            </div>
-        </div>
-
-        <div id="view-sentence" class="screen">
-            <div class="status-box">
-                <h3 style="margin:0">🎲 문장 만들기</h3>
-                <p style="color:#666; font-size:14px;">저장된 단어 중 3개를 뽑습니다.<br>이 단어들로 문장을 만들어보세요.</p>
-            </div>
-            <button class="add-btn" onclick="logic.drawRandomWords()" style="background: #007bff;">🎲 단어 3개 뽑기</button>
-            <div id="random-result" style="display:none;">
-                <div class="random-word-box" id="random-words-container"></div>
-                <p style="text-align:center; color:#888; font-size:13px; margin-top:10px;">(단어를 터치하면 뜻이 보입니다)</p>
             </div>
         </div>
     </div>
@@ -141,7 +125,7 @@
         import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
         // ========================================================
-        // [필수] 본인의 Firebase 키값 적용됨
+        // [필수] 본인의 Firebase 키값 유지됨
         // ========================================================
         const firebaseConfig = {
             apiKey: "AIzaSyBaf_WMp-HO061x8di3e2Z_bFrSytngQGA",
@@ -177,11 +161,6 @@
                 document.getElementById('guide-text').style.display = 'none';
                 
                 logic.updateButtonLabels(); // 버튼 텍스트 업데이트
-            },
-
-            toggleMeaning: (element) => {
-                const span = element.querySelector('.word-meaning');
-                span.style.display = (span.style.display === 'none') ? 'block' : 'none';
             },
 
             renderList: () => {
@@ -225,7 +204,7 @@
                 return days + "일";
             },
 
-            // [핵심] 다음 날짜 시뮬레이션
+            // [핵심] 다음 날짜 시뮬레이션 (Easy 보너스 포함)
             calculateNext: (quality) => {
                 let { interval, repetitions, easeFactor } = currentCard;
                 let newInt = interval;
@@ -242,14 +221,14 @@
                     } else if (newReps === 1) {
                         newInt = 6;
                     } else {
-                        // [복습 카드] SM-2 알고리즘 적용
+                        // [복습 카드] SM-2 알고리즘
                         let modifier = (quality === 3) ? 1.2 : (quality === 5 ? 1.3 : 1.0);
                         newInt = Math.round(newInt * newEase * modifier);
                     }
                     newReps++;
                 }
 
-                // EasyFactor 조정 (Again이면 감소, Easy면 증가)
+                // EasyFactor 조정
                 if (quality !== 1) {
                     newEase += (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
                     if (newEase < 1.3) newEase = 1.3;
@@ -343,21 +322,6 @@
                     document.getElementById('study-content').style.display = 'none';
                     document.getElementById('no-study').style.display = 'block';
                 }
-            },
-
-            drawRandomWords: () => {
-                if (cards.length < 3) return alert("단어가 3개 이상 필요합니다!");
-                const shuffled = [...cards].sort(() => 0.5 - Math.random()).slice(0, 3);
-                const container = document.getElementById('random-words-container');
-                container.innerHTML = '';
-                shuffled.forEach(c => {
-                    const tag = document.createElement('div');
-                    tag.className = 'word-tag';
-                    tag.innerHTML = `${c.front}<span class="word-meaning" style="display:none;">${c.back}</span>`;
-                    tag.onclick = function() { ui.toggleMeaning(this); };
-                    container.appendChild(tag);
-                });
-                document.getElementById('random-result').style.display = 'block';
             }
         };
 
@@ -365,3 +329,4 @@
     </script>
 </body>
 </html>
+
