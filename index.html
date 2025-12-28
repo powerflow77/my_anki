@@ -3,26 +3,48 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>나만의 단어장 (Final)</title>
+    <title>나만의 단어장 (Final Text Stats)</title>
     <style>
         /* 기본 스타일 */
         body { font-family: 'Apple SD Gothic Neo', sans-serif; background-color: #f0f2f5; margin: 0; display: flex; flex-direction: column; height: 100vh; }
         
-        /* 네비게이션바 (탭 2개로 복구) */
+        /* 네비게이션바 (관리 -> 학습 -> 통계) */
         nav { background: white; padding: 15px 5px; display: flex; justify-content: space-around; border-bottom: 1px solid #ddd; flex-shrink: 0; }
-        .nav-item { font-weight: bold; color: #aaa; cursor: pointer; padding: 10px 20px; font-size: 16px; }
+        .nav-item { font-weight: bold; color: #aaa; cursor: pointer; padding: 10px 15px; font-size: 15px; }
         .nav-item.active { color: black; border-bottom: 2px solid black; }
         
         .container { flex: 1; padding: 20px; display: flex; flex-direction: column; align-items: center; overflow-y: auto; }
         .screen { width: 100%; max-width: 450px; display: none; } 
         .screen.active { display: block; } 
 
-        /* 통계(현황) 박스 */
-        .status-box { background: white; padding: 20px; border-radius: 15px; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
-        .stat-row { display: flex; justify-content: space-around; align-items: center; text-align: center; }
-        .stat-label { font-size: 11px; color: #888; margin-bottom: 5px; font-weight: bold; letter-spacing: 1px; }
+        /* --- 통계 탭 스타일 (ALL TEXT) --- */
+        .stats-container { background: white; padding: 25px 20px; border-radius: 20px; width: 100%; box-sizing: border-box; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        
+        /* 1. 기본 요약 (총 횟수, 연속일) */
+        .stat-header-row { display: flex; justify-content: space-between; border-bottom: 2px solid #f0f0f0; padding-bottom: 20px; margin-bottom: 20px; }
+        .stat-header-item { text-align: center; width: 48%; }
+        .stat-big-num { font-size: 32px; font-weight: bold; color: #333; display: block; line-height: 1.2; }
+        .stat-caption { font-size: 13px; color: #888; font-weight: 500; }
+
+        /* 2. 상세 지표 그리드 (4칸) */
+        .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
+        .stat-box { background-color: #f9f9f9; border-radius: 12px; padding: 15px; text-align: center; }
+        .stat-box-val { font-size: 20px; font-weight: bold; color: #333; margin-bottom: 4px; }
+        .stat-box-lbl { font-size: 11px; color: #666; }
+
+        /* 3. 최근 7일 리스트 */
+        .history-list { list-style: none; padding: 0; margin: 0; border-top: 2px solid #f0f0f0; padding-top: 10px; }
+        .history-item { display: flex; justify-content: space-between; padding: 12px 5px; border-bottom: 1px solid #f5f5f5; font-size: 14px; color: #444; }
+        .history-item:last-child { border-bottom: none; }
+        .history-count { font-weight: bold; color: #007bff; }
+
+        /* 학습하기 탭 현황판 */
+        .status-box { background: white; padding: 20px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); text-align: center; margin-bottom: 20px; }
+        .stat-row { display: flex; justify-content: space-around; align-items: center; }
+        .stat-item { flex: 1; }
+        .stat-label { font-size: 12px; color: #888; margin-bottom: 5px; font-weight: bold; }
         .stat-value { font-size: 24px; font-weight: bold; }
-        .v-line { width: 1px; height: 30px; background: #eee; }
+        .v-line { width: 1px; height: 40px; background: #eee; }
 
         /* 입력 및 리스트 */
         .input-area { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px;}
@@ -41,12 +63,11 @@
         .front { font-size: 30px; font-weight: bold; color: #333; }
         .back { font-size: 24px; color: #007bff; margin-top: 30px; font-weight: bold; }
         
-        /* 버튼 그룹 (시간 표시용) */
+        /* 버튼 그룹 */
         .btn-group { display: flex; gap: 8px; width: 100%; }
         .btn-group button { flex: 1; padding: 12px 5px; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; font-size: 13px; color: #333; box-shadow: 0 2px 5px rgba(0,0,0,0.1); transition: transform 0.1s; }
         .btn-group button:active { transform: scale(0.95); }
 
-        /* 로딩 화면 */
         #loading { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.9); z-index:999; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 20px; color: #333; }
     </style>
 </head>
@@ -57,54 +78,46 @@
     <nav>
         <div id="tab-manage" class="nav-item active" onclick="ui.switchTab('manage')">카드관리</div>
         <div id="tab-study" class="nav-item" onclick="ui.switchTab('study')">학습하기</div>
+        <div id="tab-stats" class="nav-item" onclick="ui.switchTab('stats')">통계</div>
     </nav>
 
     <div class="container">
         <div id="view-manage" class="screen active">
-            
-            <div class="status-box">
-                <div class="stat-row">
-                    <div>
-                        <div class="stat-label">NEW</div>
-                        <div id="new-count" class="stat-value" style="color:#007bff;">0</div>
-                    </div>
-                    <div class="v-line"></div>
-                    <div>
-                        <div class="stat-label">REVIEW</div>
-                        <div id="review-count" class="stat-value" style="color:#28a745;">0</div>
-                    </div>
-                    <div class="v-line"></div>
-                    <div>
-                        <div class="stat-label">TOTAL</div>
-                        <div id="total-count" class="stat-value" style="color:#333;">0</div>
-                    </div>
-                </div>
-            </div>
-
             <div class="input-area">
                 <h3 style="margin-top:0; font-size:18px;">새 카드 추가</h3>
                 <input type="text" id="new-front" placeholder="앞면 (질문/영어)">
                 <input type="text" id="new-back" placeholder="뒷면 (정답/한글)">
                 <button class="add-btn" onclick="logic.addCard()">저장하기</button>
             </div>
-            
             <div class="list-title"><span>서버 저장 목록</span> <button onclick="logic.loadCards()" style="background:none; border:none; color:blue; cursor:pointer;">🔄 새로고침</button></div>
             <div id="card-list-area"></div>
         </div>
 
         <div id="view-study" class="screen">
-            <div id="study-content" style="display:none; width:100%;">
-                <div class="status-box" style="padding: 10px; margin-bottom: 10px;">
-                    <span style="color:#007bff; font-weight:bold;">New: <span id="study-new">0</span></span> 
-                    <span style="color:#ddd; margin:0 10px;">|</span>
-                    <span style="color:#28a745; font-weight:bold;">Rev: <span id="study-rev">0</span></span>
+            <div class="status-box">
+                <div class="stat-row">
+                    <div class="stat-item">
+                        <div class="stat-label">NEW</div>
+                        <div id="study-new" class="stat-value" style="color:#007bff;">0</div>
+                    </div>
+                    <div class="v-line"></div>
+                    <div class="stat-item">
+                        <div class="stat-label">REVIEW</div>
+                        <div id="study-rev" class="stat-value" style="color:#28a745;">0</div>
+                    </div>
+                    <div class="v-line"></div>
+                    <div class="stat-item">
+                        <div class="stat-label">TOTAL</div>
+                        <div id="study-total" class="stat-value" style="color:#333;">0</div>
+                    </div>
                 </div>
+            </div>
 
+            <div id="study-content" style="display:none; width:100%;">
                 <div id="card-display" class="card" onclick="ui.flipCard()">
                     <div id="card-text">로딩 중...</div>
                 </div>
                 <p id="guide-text" style="color:#888; text-align:center;">터치해서 정답 확인</p>
-                
                 <div id="rating-btns" class="btn-group" style="display: none;">
                     <button id="btn-1" style="background:#ffadad" onclick="logic.rateCard(1)">Again</button>
                     <button id="btn-3" style="background:#ffd6a5" onclick="logic.rateCard(3)">Hard</button>
@@ -112,10 +125,50 @@
                     <button id="btn-5" style="background:#caffbf" onclick="logic.rateCard(5)">Easy</button>
                 </div>
             </div>
-            
             <div id="no-study" style="text-align: center; display: block;">
                 <h2>🎉</h2><h3>오늘 공부 끝!</h3><p>복습할 카드가 없습니다.</p>
-                <button class="add-btn" onclick="ui.switchTab('manage')">관리 화면으로</button>
+                <button class="add-btn" onclick="ui.switchTab('stats')">결과 확인하기</button>
+            </div>
+        </div>
+
+        <div id="view-stats" class="screen">
+            <h3 style="margin-top:0; color:#333;">📊 학습 리포트</h3>
+            
+            <div class="stats-container">
+                <div class="stat-header-row">
+                    <div class="stat-header-item">
+                        <span id="txt-total-count" class="stat-big-num">0</span>
+                        <span class="stat-caption">총 학습 횟수</span>
+                    </div>
+                    <div class="stat-header-item">
+                        <span id="txt-streak-count" class="stat-big-num" style="color:#ff6b6b">0</span>
+                        <span class="stat-caption">연속 학습일</span>
+                    </div>
+                </div>
+
+                <h4 style="margin: 0 0 10px 0; color:#555; font-size:14px;">상세 분석</h4>
+                <div class="stat-grid">
+                    <div class="stat-box">
+                        <div id="txt-mature" class="stat-box-val" style="color:#28a745;">0개</div>
+                        <div class="stat-box-lbl">완전 암기 (21일↑)</div>
+                    </div>
+                    <div class="stat-box">
+                        <div id="txt-avg-int" class="stat-box-val" style="color:#007bff;">0일</div>
+                        <div class="stat-box-lbl">평균 기억 수명</div>
+                    </div>
+                    <div class="stat-box">
+                        <div id="txt-difficulty" class="stat-box-val" style="color:#fd7e14;">100%</div>
+                        <div class="stat-box-lbl">뇌 고통 지수</div>
+                    </div>
+                    <div class="stat-box">
+                        <div id="txt-tomorrow" class="stat-box-val" style="color:#6f42c1;">0개</div>
+                        <div class="stat-box-lbl">내일의 짐</div>
+                    </div>
+                </div>
+
+                <h4 style="margin: 20px 0 10px 0; color:#555; font-size:14px;">최근 7일 기록</h4>
+                <ul id="history-list-area" class="history-list">
+                    </ul>
             </div>
         </div>
     </div>
@@ -125,7 +178,7 @@
         import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
         // ========================================================
-        // [필수] 본인의 Firebase 키값 유지됨
+        // [필수] 본인의 Firebase 키값
         // ========================================================
         const firebaseConfig = {
             apiKey: "AIzaSyBaf_WMp-HO061x8di3e2Z_bFrSytngQGA",
@@ -142,6 +195,7 @@
         const DOC_ID = "my_cards_data";
 
         let cards = [];
+        let history = {};
         let currentCard = null;
 
         window.ui = {
@@ -150,17 +204,17 @@
                 document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
                 document.getElementById(`tab-${tabName}`).classList.add('active');
                 document.getElementById(`view-${tabName}`).classList.add('active');
+                
                 if (tabName === 'study') logic.prepareStudy();
+                if (tabName === 'stats') logic.renderTextStats(); // 통계 탭 진입 시 계산
             },
 
-            // 카드 뒤집기 + 버튼 시간 계산
             flipCard: () => {
                 if (!currentCard) return;
                 document.getElementById('card-text').innerHTML = `<div class="front">${currentCard.front}</div><div class="back">${currentCard.back}</div>`;
                 document.getElementById('rating-btns').style.display = 'flex';
                 document.getElementById('guide-text').style.display = 'none';
-                
-                logic.updateButtonLabels(); // 버튼 텍스트 업데이트
+                logic.updateButtonLabels(); 
             },
 
             renderList: () => {
@@ -174,29 +228,81 @@
                 });
             },
 
-            updateStats: () => {
+            updateStudyDashboard: () => {
                 const today = new Date().toISOString().split('T')[0];
                 const dueCards = cards.filter(c => c.nextReview <= today);
-                
-                // New(한번도 안본거, Reps=0) vs Review(복습, Reps>0)
                 const newCount = dueCards.filter(c => c.repetitions === 0).length;
                 const revCount = dueCards.filter(c => c.repetitions > 0).length;
-
-                // 대시보드 업데이트
-                document.getElementById('new-count').innerText = newCount;
-                document.getElementById('review-count').innerText = revCount;
-                document.getElementById('total-count').innerText = cards.length;
-
-                // 공부 화면 상단 업데이트
-                if(document.getElementById('study-new')) {
-                    document.getElementById('study-new').innerText = newCount;
-                    document.getElementById('study-rev').innerText = revCount;
-                }
+                
+                document.getElementById('study-new').innerText = newCount;
+                document.getElementById('study-rev').innerText = revCount;
+                document.getElementById('study-total').innerText = cards.length;
             }
         };
 
         window.logic = {
-            // 시간 포맷 (0=10분, 365=1년)
+            // [핵심] 텍스트 & 수치 통계 계산
+            renderTextStats: () => {
+                // 1. [기본] 총 학습 횟수 & 스트릭
+                const total = Object.values(history).reduce((a, b) => a + b, 0);
+                document.getElementById('txt-total-count').innerText = total + "회";
+
+                let streak = 0;
+                let d = new Date();
+                while(true) {
+                    const dateStr = d.toISOString().split('T')[0];
+                    if ((history[dateStr] || 0) > 0) {
+                        streak++;
+                        d.setDate(d.getDate() - 1);
+                    } else { break; }
+                }
+                document.getElementById('txt-streak-count').innerText = streak + "일";
+
+                // 2. [상세] 트렌드 지표 계산
+                // A. 완전 암기 (Interval >= 21)
+                const matureCount = cards.filter(c => c.interval >= 21).length;
+                document.getElementById('txt-mature').innerText = matureCount + "개";
+
+                // B. 평균 기억 수명
+                const totalInt = cards.reduce((acc, c) => acc + c.interval, 0);
+                const avgInt = cards.length > 0 ? (totalInt / cards.length).toFixed(1) : 0;
+                document.getElementById('txt-avg-int').innerText = avgInt + "일";
+
+                // C. 뇌 고통 지수 (EaseFactor 평균 / 2.5 * 100)
+                const totalEase = cards.reduce((acc, c) => acc + c.easeFactor, 0);
+                const avgEase = cards.length > 0 ? (totalEase / cards.length) : 2.5;
+                const difficulty = Math.round((avgEase / 2.5) * 100);
+                document.getElementById('txt-difficulty').innerText = difficulty + "%";
+
+                // D. 내일의 짐 (내일 Due 카드 수)
+                const tmr = new Date();
+                tmr.setDate(tmr.getDate() + 1);
+                const tmrStr = tmr.toISOString().split('T')[0];
+                const tmrDue = cards.filter(c => c.nextReview === tmrStr).length;
+                document.getElementById('txt-tomorrow').innerText = tmrDue + "개";
+
+                // 3. [기록] 최근 7일 리스트
+                const listArea = document.getElementById('history-list-area');
+                listArea.innerHTML = '';
+                const today = new Date();
+                for(let i=0; i<7; i++) {
+                    const tempD = new Date();
+                    tempD.setDate(today.getDate() - i);
+                    const dateStr = tempD.toISOString().split('T')[0];
+                    const label = `${tempD.getMonth()+1}/${tempD.getDate()}`;
+                    const count = history[dateStr] || 0;
+
+                    const li = document.createElement('li');
+                    li.className = 'history-item';
+                    const isToday = (i === 0) ? " <span style='font-size:11px; color:#ff6b6b;'>(오늘)</span>" : "";
+                    li.innerHTML = `
+                        <span style="color:#666;">${label}${isToday}</span>
+                        <span class="history-count">${count}회</span>
+                    `;
+                    listArea.appendChild(li);
+                }
+            },
+
             formatInterval: (days) => {
                 if (days === 0) return "10분";
                 if (days >= 365) return (days / 365).toFixed(1) + "년";
@@ -204,40 +310,32 @@
                 return days + "일";
             },
 
-            // [핵심] 다음 날짜 시뮬레이션 (Easy 보너스 포함)
             calculateNext: (quality) => {
                 let { interval, repetitions, easeFactor } = currentCard;
                 let newInt = interval;
                 let newReps = repetitions;
                 let newEase = easeFactor;
 
-                if (quality === 1) { // Again
+                if (quality === 1) { 
                     newReps = 0;
-                    newInt = 0; // 오늘 다시
+                    newInt = 0; 
                 } else {
-                    if (newReps === 0) {
-                        // [New 카드] Easy(5)면 4일, 아니면 1일
-                        newInt = (quality === 5) ? 4 : 1;
-                    } else if (newReps === 1) {
-                        newInt = 6;
-                    } else {
-                        // [복습 카드] SM-2 알고리즘
+                    if (newReps === 0) newInt = (quality === 5) ? 4 : 1;
+                    else if (newReps === 1) newInt = 6;
+                    else {
                         let modifier = (quality === 3) ? 1.2 : (quality === 5 ? 1.3 : 1.0);
                         newInt = Math.round(newInt * newEase * modifier);
                     }
                     newReps++;
                 }
 
-                // EasyFactor 조정
                 if (quality !== 1) {
                     newEase += (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
                     if (newEase < 1.3) newEase = 1.3;
                 }
-
                 return { interval: newInt, repetitions: newReps, easeFactor: newEase };
             },
 
-            // 버튼 라벨 업데이트
             updateButtonLabels: () => {
                 const labels = { 1: "Again", 3: "Hard", 4: "Good", 5: "Easy" };
                 [1, 3, 4, 5].forEach(q => {
@@ -247,44 +345,51 @@
                 });
             },
 
-            // 평가 실행
             rateCard: async (quality) => {
                 const res = logic.calculateNext(quality);
-                
                 currentCard.interval = res.interval;
                 currentCard.repetitions = res.repetitions;
                 currentCard.easeFactor = res.easeFactor;
-
                 const nextDate = new Date();
                 nextDate.setDate(nextDate.getDate() + res.interval);
                 currentCard.nextReview = nextDate.toISOString().split('T')[0];
 
-                // Again이면 리스트 맨 뒤로 보내서 오늘 다시 보게 함
                 if (quality === 1) {
                     alert("🔄 잠시 후 다시 나옵니다!");
                     cards = cards.filter(c => c.id !== currentCard.id);
                     cards.push(currentCard);
                 }
 
+                // [저장] 통계 기록 업데이트
+                const today = new Date().toISOString().split('T')[0];
+                if (!history[today]) history[today] = 0;
+                history[today]++;
+
                 await logic.saveToDB();
-                logic.prepareStudy(); // 다음 카드로
+                logic.prepareStudy();
             },
 
-            // --- 기본 기능들 ---
             loadCards: async () => {
                 document.getElementById('loading').style.display = 'flex';
                 try {
                     const docSnap = await getDoc(doc(db, "anki", DOC_ID));
-                    cards = docSnap.exists() ? (docSnap.data().list || []) : [];
+                    if (docSnap.exists()) {
+                        const data = docSnap.data();
+                        cards = data.list || [];
+                        history = data.history || {};
+                    } else {
+                        cards = [];
+                        history = {};
+                    }
                     ui.renderList();
-                    ui.updateStats();
+                    ui.updateStudyDashboard();
                 } catch (e) { alert("로드 에러: " + e.message); }
                 document.getElementById('loading').style.display = 'none';
             },
 
             saveToDB: async () => {
-                await setDoc(doc(db, "anki", DOC_ID), { list: cards });
-                ui.updateStats();
+                await setDoc(doc(db, "anki", DOC_ID), { list: cards, history: history });
+                ui.updateStudyDashboard();
             },
 
             addCard: async () => {
@@ -308,6 +413,7 @@
             },
 
             prepareStudy: () => {
+                ui.updateStudyDashboard();
                 const today = new Date().toISOString().split('T')[0];
                 const dueCards = cards.filter(c => c.nextReview <= today);
                 if (dueCards.length > 0) {
@@ -317,7 +423,6 @@
                     document.getElementById('rating-btns').style.display = 'none';
                     document.getElementById('guide-text').style.display = 'block';
                     document.getElementById('card-text').innerHTML = `<div class="front">${currentCard.front}</div>`;
-                    ui.updateStats(); // 공부 중 남은 개수 갱신
                 } else {
                     document.getElementById('study-content').style.display = 'none';
                     document.getElementById('no-study').style.display = 'block';
@@ -329,4 +434,3 @@
     </script>
 </body>
 </html>
-
