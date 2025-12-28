@@ -265,7 +265,7 @@
 
                 // B. 평균 기억 수명
                 const totalInt = cards.reduce((acc, c) => acc + c.interval, 0);
-                const avgInt = cards.length > 0 ? (totalInt / cards.length).toFixed(1) : 0;
+                const avgInt = cards.length > 0 ? Math.round(totalInt / cards.length) : 0;
                 document.getElementById('txt-avg-int').innerText = avgInt + "일";
 
                 // C. 뇌 고통 지수 (EaseFactor 평균 / 2.5 * 100)
@@ -434,3 +434,4 @@
     </script>
 </body>
 </html>
+
