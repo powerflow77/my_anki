@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>나만의 단어장 (Undo Added)</title>
+    <title>나만의 단어장 (Daily Count Calendar)</title>
     <style>
         /* 기본 스타일 */
         body { font-family: 'Apple SD Gothic Neo', sans-serif; background-color: #f0f2f5; margin: 0; display: flex; flex-direction: column; height: 100vh; }
@@ -16,7 +16,7 @@
         .screen { width: 100%; max-width: 450px; display: none; } 
         .screen.active { display: block; } 
 
-        /* --- 통계 스타일 (기존 유지) --- */
+        /* --- 통계 스타일 --- */
         .stats-container { background: white; padding: 25px 20px; border-radius: 20px; width: 100%; box-sizing: border-box; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 20px; }
         
         .stat-header-row { display: flex; justify-content: space-between; border-bottom: 2px solid #f0f0f0; padding-bottom: 20px; margin-bottom: 20px; }
@@ -29,7 +29,7 @@
         .stat-box-val { font-size: 18px; font-weight: bold; color: #333; margin-bottom: 4px; }
         .stat-box-lbl { font-size: 11px; color: #666; }
 
-        /* 달력 스타일 (기존 유지) */
+        /* 달력 스타일 */
         .calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
         .cal-btn { background: white; border: 1px solid #ddd; border-radius: 50%; width: 32px; height: 32px; cursor: pointer; font-weight: bold; color: #555; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
         .cal-title { font-size: 18px; font-weight: bold; color: #333; }
@@ -37,21 +37,44 @@
         .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; text-align: center; }
         .cal-day-name { font-size: 12px; color: #aaa; margin-bottom: 5px; font-weight: bold; }
         
+        /* [수정됨] 달력 날짜 박스 스타일 */
         .cal-date { 
             aspect-ratio: 1/1; 
             display: flex; 
             flex-direction: column; 
-            justify-content: center; 
-            align-items: center; 
-            border-radius: 10px; 
-            font-size: 14px; 
-            color: #ccc; 
+            justify-content: center; /* 세로 중앙 정렬 */
+            align-items: center;     /* 가로 중앙 정렬 */
+            border-radius: 8px; 
             background: #f9f9f9; 
-            font-weight: 500;
+            position: relative; /* 내부 절대 위치 배치를 위해 */
         }
-        .cal-date.level-1 { background-color: #e6f7ff; color: #007bff; font-weight: bold; } 
-        .cal-date.level-2 { background-color: #007bff; color: white; font-weight: bold; }   
-        .cal-date.today { border: 2px solid #0056b3; }
+
+        /* 날짜 숫자 (우상단) */
+        .cal-date-num {
+            position: absolute;
+            top: 4px;
+            right: 5px;
+            font-size: 10px;
+            color: #bbb;
+        }
+
+        /* 학습량 숫자 (정가운데) */
+        .cal-daily-count {
+            font-size: 14px;
+            font-weight: bold;
+            color: #ddd; /* 공부 안 했을 때 흐린 색 */
+        }
+
+        /* 공부량 레벨별 스타일 */
+        .cal-date.level-1 { background-color: #e6f7ff; } 
+        .cal-date.level-1 .cal-date-num { color: #8ecae6; }
+        .cal-date.level-1 .cal-daily-count { color: #007bff; } /* 파란 글씨 */
+
+        .cal-date.level-2 { background-color: #007bff; }   
+        .cal-date.level-2 .cal-date-num { color: rgba(255,255,255,0.6); }
+        .cal-date.level-2 .cal-daily-count { color: white; } /* 흰 글씨 */
+
+        .cal-date.today { border: 2px solid #0056b3; } /* 오늘 테두리 */
 
         /* 학습하기 탭 현황판 */
         .status-box { background: white; padding: 20px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); text-align: center; margin-bottom: 20px; }
@@ -87,7 +110,7 @@
         .btn-group button { flex: 1; padding: 12px 5px; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; font-size: 13px; color: #333; box-shadow: 0 2px 5px rgba(0,0,0,0.1); transition: transform 0.1s; }
         .btn-group button:active { transform: scale(0.95); }
 
-        /* [NEW] Undo 버튼 스타일 */
+        /* Undo 버튼 */
         .undo-btn { 
             margin-top: 15px; 
             background: #6c757d; 
@@ -97,7 +120,7 @@
             border-radius: 20px; 
             font-size: 14px; 
             cursor: pointer; 
-            display: none; /* 평소엔 숨김 */
+            display: none; 
         }
         .undo-btn:hover { background: #5a6268; }
 
@@ -245,7 +268,7 @@
         let history = {};
         let currentCard = null;
         let viewDate = new Date(); 
-        let backupState = null; // [NEW] 실행 취소용 백업 변수
+        let backupState = null;
 
         window.ui = {
             switchTab: (tabName) => {
@@ -361,9 +384,11 @@
                     if (count > 0) classes += ' level-1';
                     if (count >= 10) classes += ' level-2';
 
+                    // [수정] 날짜(우상단)와 학습량(중앙) 표시
                     calArea.innerHTML += `
                         <div class="${classes}">
-                            ${i}
+                            <span class="cal-date-num">${i}</span>
+                            <span class="cal-daily-count">${count}</span>
                         </div>
                     `;
                 }
@@ -418,31 +443,22 @@
                 });
             },
 
-            // [NEW] 실행 취소 기능
             undoLastAction: async () => {
                 if (!backupState) return alert("실행 취소할 작업이 없습니다.");
-                
-                // 데이터 원상 복구
                 cards = JSON.parse(JSON.stringify(backupState.cards));
                 history = JSON.parse(JSON.stringify(backupState.history));
-                
-                // 백업 비우기 및 버튼 숨기기
                 backupState = null;
                 document.getElementById('btn-undo').style.display = 'none';
-
-                // 저장 및 화면 갱신
                 await logic.saveToDB();
                 logic.prepareStudy();
                 alert("이전 상태로 되돌렸습니다!");
             },
 
             rateCard: async (quality) => {
-                // [NEW] 실행 취소를 위해 현재 상태 백업 (Deep Copy)
                 backupState = {
                     cards: JSON.parse(JSON.stringify(cards)),
                     history: JSON.parse(JSON.stringify(history))
                 };
-                // 실행 취소 버튼 보이기
                 document.getElementById('btn-undo').style.display = 'inline-block';
 
                 const res = logic.calculateNext(quality);
@@ -454,7 +470,6 @@
                 currentCard.nextReview = nextDate.toISOString().split('T')[0];
 
                 if (quality === 1) {
-                    alert("🔄 잠시 후 다시 나옵니다!");
                     cards = cards.filter(c => c.id !== currentCard.id);
                     cards.push(currentCard);
                 }
