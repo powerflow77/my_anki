@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>나만의 단어장 (Silent Undo)</title>
+    <title>나만의 단어장 (Edit Fixed)</title>
     <style>
         /* 기본 스타일 */
         body { font-family: 'Apple SD Gothic Neo', sans-serif; background-color: #f0f2f5; margin: 0; display: flex; flex-direction: column; height: 100vh; }
@@ -48,7 +48,6 @@
             position: relative; 
         }
 
-        /* 날짜 숫자 위치: 좌상단 */
         .cal-date-num {
             position: absolute;
             top: 4px;
@@ -95,7 +94,12 @@
         .card-info { text-align: left; width: 70%; }
         .card-front { font-weight: bold; font-size: 16px; color: #333; margin-bottom: 5px; }
         .card-back { font-size: 14px; color: #888; }
+        
+        /* 버튼 스타일 */
         .del-btn { background: #ff4d4d; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold; }
+        /* [NEW] 수정 버튼 스타일 */
+        .edit-btn { background: #007bff; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold; margin-right: 5px; }
+        .edit-btn:hover { background: #0056b3; }
 
         /* 공부 카드 */
         .card { 
@@ -311,7 +315,15 @@
                 [...filtered].reverse().forEach(card => {
                     const div = document.createElement('div');
                     div.className = 'card-item';
-                    div.innerHTML = `<div class="card-info"><div class="card-front">${card.front}</div><div class="card-back">${card.back}</div></div><button class="del-btn" onclick="logic.deleteCard(${card.id})">삭제</button>`;
+                    
+                    // [수정] 수정 버튼 추가됨
+                    div.innerHTML = `
+                        <div class="card-info"><div class="card-front">${card.front}</div><div class="card-back">${card.back}</div></div>
+                        <div style="display:flex;">
+                            <button class="edit-btn" onclick="logic.editCard(${card.id})">수정</button>
+                            <button class="del-btn" onclick="logic.deleteCard(${card.id})">삭제</button>
+                        </div>
+                    `;
                     listArea.appendChild(div);
                 });
             },
@@ -463,7 +475,6 @@
                 document.getElementById('btn-undo').style.display = 'none';
                 await logic.saveToDB();
                 logic.prepareStudy();
-                // [알림창 제거됨] alert("이전 상태로 되돌렸습니다!");
             },
 
             rateCard: async (quality) => {
@@ -528,6 +539,24 @@
                 document.getElementById('search-input').value = ''; 
                 ui.renderList();
                 alert("저장 완료!");
+            },
+
+            // [NEW] 수정 기능
+            editCard: async (id) => {
+                const card = cards.find(c => c.id === id);
+                if (!card) return;
+                
+                const newFront = prompt("앞면 수정", card.front);
+                if (newFront === null) return;
+                
+                const newBack = prompt("뒷면 수정", card.back);
+                if (newBack === null) return;
+
+                card.front = newFront;
+                card.back = newBack;
+                
+                await logic.saveToDB();
+                ui.renderList();
             },
 
             deleteCard: async (id) => {
