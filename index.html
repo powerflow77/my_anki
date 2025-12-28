@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>나만의 단어장 (Edit Fixed)</title>
+    <title>나만의 단어장 (Inline Edit)</title>
     <style>
         /* 기본 스타일 */
         body { font-family: 'Apple SD Gothic Neo', sans-serif; background-color: #f0f2f5; margin: 0; display: flex; flex-direction: column; height: 100vh; }
@@ -48,19 +48,8 @@
             position: relative; 
         }
 
-        .cal-date-num {
-            position: absolute;
-            top: 4px;
-            left: 5px;
-            font-size: 10px;
-            color: #bbb;
-        }
-
-        .cal-daily-count {
-            font-size: 14px;
-            font-weight: bold;
-            color: #ddd; 
-        }
+        .cal-date-num { position: absolute; top: 4px; left: 5px; font-size: 10px; color: #bbb; }
+        .cal-daily-count { font-size: 14px; font-weight: bold; color: #ddd; }
 
         .cal-date.level-1 { background-color: #e6f7ff; } 
         .cal-date.level-1 .cal-date-num { color: #8ecae6; }
@@ -90,16 +79,20 @@
         .add-btn { background: black; color: white; width: 100%; padding: 12px; margin-top: 10px; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; }
         
         .list-title { margin: 20px 0 10px 0; font-weight: bold; color: #555; display: flex; justify-content: space-between; align-items: center; }
+        
         .card-item { background: white; padding: 15px; border-radius: 10px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
         .card-info { text-align: left; width: 70%; }
         .card-front { font-weight: bold; font-size: 16px; color: #333; margin-bottom: 5px; }
         .card-back { font-size: 14px; color: #888; }
         
-        /* 버튼 스타일 */
         .del-btn { background: #ff4d4d; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold; }
-        /* [NEW] 수정 버튼 스타일 */
         .edit-btn { background: #007bff; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold; margin-right: 5px; }
         .edit-btn:hover { background: #0056b3; }
+
+        /* [NEW] 인라인 수정 모드 스타일 */
+        .edit-input { width: 100%; padding: 8px; margin-bottom: 5px; border: 1px solid #007bff; border-radius: 5px; font-size: 14px; }
+        .save-btn { background: #28a745; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px; margin-right: 5px; }
+        .cancel-btn { background: #6c757d; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px; }
 
         /* 공부 카드 */
         .card { 
@@ -314,13 +307,16 @@
 
                 [...filtered].reverse().forEach(card => {
                     const div = document.createElement('div');
+                    div.id = `card-wrap-${card.id}`; // [NEW] 인라인 수정을 위해 ID 부여
                     div.className = 'card-item';
                     
-                    // [수정] 수정 버튼 추가됨
                     div.innerHTML = `
-                        <div class="card-info"><div class="card-front">${card.front}</div><div class="card-back">${card.back}</div></div>
-                        <div style="display:flex;">
-                            <button class="edit-btn" onclick="logic.editCard(${card.id})">수정</button>
+                        <div class="card-info">
+                            <div class="card-front">${card.front}</div>
+                            <div class="card-back">${card.back}</div>
+                        </div>
+                        <div style="display:flex; flex-shrink:0;">
+                            <button class="edit-btn" onclick="logic.toggleEditMode(${card.id})">수정</button>
                             <button class="del-btn" onclick="logic.deleteCard(${card.id})">삭제</button>
                         </div>
                     `;
@@ -341,6 +337,41 @@
         };
 
         window.logic = {
+            // [NEW] 인라인 수정 모드 전환
+            toggleEditMode: (id) => {
+                const card = cards.find(c => c.id === id);
+                if (!card) return;
+                
+                const wrap = document.getElementById(`card-wrap-${id}`);
+                // 기존 HTML을 입력창으로 교체
+                wrap.innerHTML = `
+                    <div style="width:100%;">
+                        <input type="text" id="edit-front-${id}" class="edit-input" value="${card.front}">
+                        <input type="text" id="edit-back-${id}" class="edit-input" value="${card.back}">
+                        <div style="text-align:right;">
+                            <button class="save-btn" onclick="logic.saveEdit(${id})">저장</button>
+                            <button class="cancel-btn" onclick="ui.renderList()">취소</button>
+                        </div>
+                    </div>
+                `;
+            },
+
+            // [NEW] 수정 내용 저장
+            saveEdit: async (id) => {
+                const newFront = document.getElementById(`edit-front-${id}`).value;
+                const newBack = document.getElementById(`edit-back-${id}`).value;
+                
+                if (!newFront || !newBack) return alert("내용을 입력하세요.");
+
+                const card = cards.find(c => c.id === id);
+                if (card) {
+                    card.front = newFront;
+                    card.back = newBack;
+                    await logic.saveToDB();
+                    ui.renderList(); // 목록 새로고침 (뷰 모드로 복귀)
+                }
+            },
+
             renderCalendarStats: () => {
                 const total = Object.values(history).reduce((a, b) => a + b, 0);
                 document.getElementById('txt-total-count').innerText = total + "회";
@@ -539,24 +570,6 @@
                 document.getElementById('search-input').value = ''; 
                 ui.renderList();
                 alert("저장 완료!");
-            },
-
-            // [NEW] 수정 기능
-            editCard: async (id) => {
-                const card = cards.find(c => c.id === id);
-                if (!card) return;
-                
-                const newFront = prompt("앞면 수정", card.front);
-                if (newFront === null) return;
-                
-                const newBack = prompt("뒷면 수정", card.back);
-                if (newBack === null) return;
-
-                card.front = newFront;
-                card.back = newBack;
-                
-                await logic.saveToDB();
-                ui.renderList();
             },
 
             deleteCard: async (id) => {
