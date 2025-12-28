@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>나만의 단어장 (Multi-line Support)</title>
+    <title>나만의 단어장 (Pagination Added)</title>
     <style>
         /* 기본 스타일 */
         body { font-family: 'Apple SD Gothic Neo', sans-serif; background-color: #f0f2f5; margin: 0; display: flex; flex-direction: column; height: 100vh; }
@@ -72,7 +72,7 @@
         /* 입력 및 리스트 */
         .input-area { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px;}
         
-        /* [수정] textarea 스타일 추가 및 input 공통 스타일 */
+        /* input, textarea 스타일 */
         input, textarea { width: 100%; padding: 12px; margin: 5px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; font-family: inherit; resize: vertical; }
         
         #search-input { background-color: #f9f9f9; border-color: #eee; margin-bottom: 0; }
@@ -85,7 +85,6 @@
         .card-item { background: white; padding: 15px; border-radius: 10px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
         .card-info { text-align: left; width: 70%; }
         
-        /* [수정] 줄바꿈이 보이도록 white-space 속성 추가 */
         .card-front { font-weight: bold; font-size: 16px; color: #333; margin-bottom: 5px; white-space: pre-wrap; word-break: break-all; }
         .card-back { font-size: 14px; color: #888; white-space: pre-wrap; word-break: break-all; }
         
@@ -97,6 +96,12 @@
         .edit-input { width: 100%; padding: 8px; margin-bottom: 5px; border: 1px solid #007bff; border-radius: 5px; font-size: 14px; }
         .save-btn { background: #28a745; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px; margin-right: 5px; }
         .cancel-btn { background: #6c757d; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px; }
+
+        /* [NEW] 페이지네이션 스타일 */
+        .pagination { display: flex; justify-content: center; gap: 5px; margin-top: 20px; width: 100%; flex-wrap: wrap; }
+        .page-btn { background: white; border: 1px solid #ddd; padding: 8px 12px; border-radius: 8px; cursor: pointer; color: #555; font-size: 14px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+        .page-btn.active { background: black; color: white; border-color: black; font-weight: bold; }
+        .page-btn:disabled { opacity: 0.5; cursor: default; }
 
         /* 공부 카드 */
         .card { 
@@ -116,7 +121,6 @@
             margin-bottom: 20px; 
             position: relative; 
         }
-        /* [수정] 카드 내용 줄바꿈 허용 */
         .front { font-size: 30px; font-weight: bold; color: #333; white-space: pre-wrap; word-break: break-all; }
         .back { font-size: 24px; color: #007bff; margin-top: 30px; font-weight: bold; white-space: pre-wrap; word-break: break-all; }
         
@@ -155,17 +159,19 @@
         <div id="view-manage" class="screen active">
             <div class="input-area">
                 <h3 style="margin-top:0; font-size:18px;">새 카드 추가</h3>
-                <textarea id="new-front" placeholder="앞면 (질문/영어) - 엔터로 줄바꿈" rows="2"></textarea>
-                <textarea id="new-back" placeholder="뒷면 (정답/한글) - 엔터로 줄바꿈" rows="2"></textarea>
+                <textarea id="new-front" placeholder="앞면 (질문/영어) - 엔터로 줄바꿈" rows="2" onkeydown="if(event.shiftKey && event.key === 'Enter') logic.addCard()"></textarea>
+                <textarea id="new-back" placeholder="뒷면 (정답/한글) - 엔터로 줄바꿈" rows="2" onkeydown="if(event.shiftKey && event.key === 'Enter') logic.addCard()"></textarea>
                 <button class="add-btn" onclick="logic.addCard()">저장하기</button>
             </div>
             
             <div style="width:100%; margin-bottom:10px;">
-                <input type="text" id="search-input" placeholder="🔍 단어 검색 (앞면/뒷면)" onkeyup="ui.renderList()" style="margin:0;">
+                <input type="text" id="search-input" placeholder="🔍 단어 검색 (앞면/뒷면)" onkeyup="ui.searchReset()" style="margin:0;">
             </div>
 
             <div class="list-title"><span>서버 저장 목록</span> <button onclick="logic.loadCards()" style="background:none; border:none; color:blue; cursor:pointer;">🔄 새로고침</button></div>
+            
             <div id="card-list-area"></div>
+            <div id="pagination-area" class="pagination"></div>
         </div>
 
         <div id="view-study" class="screen">
@@ -283,6 +289,10 @@
         let currentCard = null;
         let viewDate = new Date(); 
         let backupState = null;
+        
+        // [NEW] 페이지네이션 변수
+        let currentPage = 1;
+        const ITEMS_PER_PAGE = 20;
 
         window.ui = {
             switchTab: (tabName) => {
@@ -303,13 +313,43 @@
                 logic.updateButtonLabels(); 
             },
 
+            // [NEW] 검색 시 페이지 초기화
+            searchReset: () => {
+                currentPage = 1;
+                ui.renderList();
+            },
+
+            // [NEW] 페이지 변경 함수
+            changePage: (page) => {
+                currentPage = page;
+                ui.renderList();
+            },
+
             renderList: () => {
                 const listArea = document.getElementById('card-list-area');
+                const pagArea = document.getElementById('pagination-area');
                 listArea.innerHTML = '';
-                const query = document.getElementById('search-input') ? document.getElementById('search-input').value.toLowerCase() : "";
-                const filtered = cards.filter(c => c.front.toLowerCase().includes(query) || c.back.toLowerCase().includes(query));
+                pagArea.innerHTML = '';
 
-                [...filtered].reverse().forEach(card => {
+                const query = document.getElementById('search-input') ? document.getElementById('search-input').value.toLowerCase() : "";
+                
+                // 1. 필터링
+                let filtered = cards.filter(c => c.front.toLowerCase().includes(query) || c.back.toLowerCase().includes(query));
+                
+                // 2. 최신순 정렬 (기존 로직 유지)
+                filtered = filtered.reverse();
+
+                // 3. 페이지네이션 계산
+                const totalItems = filtered.length;
+                const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE) || 1;
+                if (currentPage > totalPages) currentPage = totalPages;
+
+                const start = (currentPage - 1) * ITEMS_PER_PAGE;
+                const end = start + ITEMS_PER_PAGE;
+                const pageData = filtered.slice(start, end);
+
+                // 4. 리스트 렌더링 (20개만)
+                pageData.forEach(card => {
                     const div = document.createElement('div');
                     div.id = `card-wrap-${card.id}`; 
                     div.className = 'card-item';
@@ -325,6 +365,31 @@
                     `;
                     listArea.appendChild(div);
                 });
+
+                // 5. 페이지네이션 버튼 렌더링
+                if (totalPages > 1) {
+                    let pagHTML = '';
+                    
+                    // 이전 버튼
+                    pagHTML += `<button class="page-btn" onclick="ui.changePage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>&lt;</button>`;
+                    
+                    // 숫자 버튼 (단순화: 전체 다 보여주거나 적당히 자르기. 일단 심플하게 1~Total)
+                    // 칸이 좁을 수 있으므로 최대 5개 정도만 보여주는 로직이 좋지만, 요청사항대로 단순 20개 끊기 구현에 집중.
+                    // 모바일 화면 고려하여 심플하게 현재 페이지 주변만 보여주겠습니다.
+                    
+                    let startPage = Math.max(1, currentPage - 2);
+                    let endPage = Math.min(totalPages, startPage + 4);
+                    if (endPage - startPage < 4) startPage = Math.max(1, endPage - 4);
+
+                    for (let i = startPage; i <= endPage; i++) {
+                        pagHTML += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="ui.changePage(${i})">${i}</button>`;
+                    }
+
+                    // 다음 버튼
+                    pagHTML += `<button class="page-btn" onclick="ui.changePage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>&gt;</button>`;
+                    
+                    pagArea.innerHTML = pagHTML;
+                }
             },
 
             updateStudyDashboard: () => {
@@ -359,11 +424,11 @@
                 const card = cards.find(c => c.id === id);
                 if (!card) return;
                 const wrap = document.getElementById(`card-wrap-${id}`);
-                // [수정] 수정 모드에서도 textarea 사용 (줄바꿈 가능)
+                // [유지] textarea + Shift Enter
                 wrap.innerHTML = `
                     <div style="width:100%;">
-                        <textarea id="edit-front-${id}" class="edit-input" rows="3">${card.front}</textarea>
-                        <textarea id="edit-back-${id}" class="edit-input" rows="3">${card.back}</textarea>
+                        <textarea id="edit-front-${id}" class="edit-input" rows="3" onkeydown="if(event.shiftKey && event.key === 'Enter') logic.saveEdit(${id})">${card.front}</textarea>
+                        <textarea id="edit-back-${id}" class="edit-input" rows="3" onkeydown="if(event.shiftKey && event.key === 'Enter') logic.saveEdit(${id})">${card.back}</textarea>
                         <div style="text-align:right;">
                             <button class="save-btn" onclick="logic.saveEdit(${id})">저장</button>
                             <button class="cancel-btn" onclick="ui.renderList()">취소</button>
@@ -559,7 +624,7 @@
                         cards = [];
                         history = {};
                     }
-                    ui.renderList();
+                    ui.renderList(); // 여기서 페이지네이션 최초 적용됨
                     ui.updateStudyDashboard();
                 } catch (e) { alert("로드 에러: " + e.message); }
                 document.getElementById('loading').style.display = 'none';
@@ -579,6 +644,9 @@
                 document.getElementById('new-front').value = '';
                 document.getElementById('new-back').value = '';
                 document.getElementById('search-input').value = ''; 
+                
+                // [NEW] 카드 추가 시 첫 페이지로 이동해서 내 카드 확인
+                currentPage = 1; 
                 ui.renderList();
                 alert("저장 완료!");
             },
