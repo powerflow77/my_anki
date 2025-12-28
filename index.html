@@ -3,12 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>나만의 단어장 (Final Text Stats)</title>
+    <title>나만의 단어장 (Calendar Final)</title>
     <style>
         /* 기본 스타일 */
         body { font-family: 'Apple SD Gothic Neo', sans-serif; background-color: #f0f2f5; margin: 0; display: flex; flex-direction: column; height: 100vh; }
         
-        /* 네비게이션바 (관리 -> 학습 -> 통계) */
         nav { background: white; padding: 15px 5px; display: flex; justify-content: space-around; border-bottom: 1px solid #ddd; flex-shrink: 0; }
         .nav-item { font-weight: bold; color: #aaa; cursor: pointer; padding: 10px 15px; font-size: 15px; }
         .nav-item.active { color: black; border-bottom: 2px solid black; }
@@ -17,26 +16,46 @@
         .screen { width: 100%; max-width: 450px; display: none; } 
         .screen.active { display: block; } 
 
-        /* --- 통계 탭 스타일 (ALL TEXT) --- */
+        /* --- 통계 스타일 --- */
         .stats-container { background: white; padding: 25px 20px; border-radius: 20px; width: 100%; box-sizing: border-box; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 20px; }
         
-        /* 1. 기본 요약 (총 횟수, 연속일) */
+        /* 1. 상단 요약 */
         .stat-header-row { display: flex; justify-content: space-between; border-bottom: 2px solid #f0f0f0; padding-bottom: 20px; margin-bottom: 20px; }
         .stat-header-item { text-align: center; width: 48%; }
         .stat-big-num { font-size: 32px; font-weight: bold; color: #333; display: block; line-height: 1.2; }
         .stat-caption { font-size: 13px; color: #888; font-weight: 500; }
 
-        /* 2. 상세 지표 그리드 (4칸) */
-        .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
+        /* 2. 상세 지표 (4개 그리드) - 유지됨 */
+        .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 25px; border-bottom: 2px solid #f0f0f0; padding-bottom: 25px; }
         .stat-box { background-color: #f9f9f9; border-radius: 12px; padding: 15px; text-align: center; }
-        .stat-box-val { font-size: 20px; font-weight: bold; color: #333; margin-bottom: 4px; }
+        .stat-box-val { font-size: 18px; font-weight: bold; color: #333; margin-bottom: 4px; }
         .stat-box-lbl { font-size: 11px; color: #666; }
 
-        /* 3. 최근 7일 리스트 */
-        .history-list { list-style: none; padding: 0; margin: 0; border-top: 2px solid #f0f0f0; padding-top: 10px; }
-        .history-item { display: flex; justify-content: space-between; padding: 12px 5px; border-bottom: 1px solid #f5f5f5; font-size: 14px; color: #444; }
-        .history-item:last-child { border-bottom: none; }
-        .history-count { font-weight: bold; color: #007bff; }
+        /* 3. 달력 스타일 (NEW) */
+        .calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .cal-btn { background: white; border: 1px solid #ddd; border-radius: 50%; width: 32px; height: 32px; cursor: pointer; font-weight: bold; color: #555; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .cal-title { font-size: 18px; font-weight: bold; color: #333; }
+
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; text-align: center; }
+        .cal-day-name { font-size: 12px; color: #aaa; margin-bottom: 5px; font-weight: bold; }
+        
+        .cal-date { 
+            aspect-ratio: 1/1; 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: center; 
+            align-items: center; 
+            border-radius: 10px; 
+            font-size: 14px; 
+            color: #ccc; 
+            background: #f9f9f9; 
+            font-weight: 500;
+        }
+        
+        /* 달력 색상 (공부량에 따라) */
+        .cal-date.level-1 { background-color: #e6f7ff; color: #007bff; font-weight: bold; } 
+        .cal-date.level-2 { background-color: #007bff; color: white; font-weight: bold; }   
+        .cal-date.today { border: 2px solid #0056b3; }
 
         /* 학습하기 탭 현황판 */
         .status-box { background: white; padding: 20px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); text-align: center; margin-bottom: 20px; }
@@ -138,7 +157,7 @@
                 <div class="stat-header-row">
                     <div class="stat-header-item">
                         <span id="txt-total-count" class="stat-big-num">0</span>
-                        <span class="stat-caption">총 학습 횟수</span>
+                        <span class="stat-caption">총 누적 학습</span>
                     </div>
                     <div class="stat-header-item">
                         <span id="txt-streak-count" class="stat-big-num" style="color:#ff6b6b">0</span>
@@ -146,7 +165,6 @@
                     </div>
                 </div>
 
-                <h4 style="margin: 0 0 10px 0; color:#555; font-size:14px;">상세 분석</h4>
                 <div class="stat-grid">
                     <div class="stat-box">
                         <div id="txt-mature" class="stat-box-val" style="color:#28a745;">0개</div>
@@ -166,9 +184,18 @@
                     </div>
                 </div>
 
-                <h4 style="margin: 20px 0 10px 0; color:#555; font-size:14px;">최근 7일 기록</h4>
-                <ul id="history-list-area" class="history-list">
-                    </ul>
+                <div class="calendar-header">
+                    <button class="cal-btn" onclick="logic.changeMonth(-1)"> < </button>
+                    <span id="cal-month-title" class="cal-title">2025.12</span>
+                    <button class="cal-btn" onclick="logic.changeMonth(1)"> > </button>
+                </div>
+
+                <div class="calendar-grid" id="calendar-area">
+                    </div>
+                
+                <div style="text-align:center; margin-top:15px; font-size:13px; color:#888;">
+                    해당 월 학습량: <span id="cal-month-total" style="font-weight:bold; color:#007bff;">0회</span>
+                </div>
             </div>
         </div>
     </div>
@@ -177,9 +204,6 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
         import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
-        // ========================================================
-        // [필수] 본인의 Firebase 키값
-        // ========================================================
         const firebaseConfig = {
             apiKey: "AIzaSyBaf_WMp-HO061x8di3e2Z_bFrSytngQGA",
             authDomain: "anki-27849.firebaseapp.com",
@@ -197,6 +221,7 @@
         let cards = [];
         let history = {};
         let currentCard = null;
+        let viewDate = new Date(); 
 
         window.ui = {
             switchTab: (tabName) => {
@@ -206,7 +231,7 @@
                 document.getElementById(`view-${tabName}`).classList.add('active');
                 
                 if (tabName === 'study') logic.prepareStudy();
-                if (tabName === 'stats') logic.renderTextStats(); // 통계 탭 진입 시 계산
+                if (tabName === 'stats') logic.renderCalendarStats(); 
             },
 
             flipCard: () => {
@@ -241,9 +266,9 @@
         };
 
         window.logic = {
-            // [핵심] 텍스트 & 수치 통계 계산
-            renderTextStats: () => {
-                // 1. [기본] 총 학습 횟수 & 스트릭
+            // [핵심] 통계 로직 (수치 계산 + 달력 그리기)
+            renderCalendarStats: () => {
+                // 1. [기존 유지] 전체 통계 계산
                 const total = Object.values(history).reduce((a, b) => a + b, 0);
                 document.getElementById('txt-total-count').innerText = total + "회";
 
@@ -258,49 +283,78 @@
                 }
                 document.getElementById('txt-streak-count').innerText = streak + "일";
 
-                // 2. [상세] 트렌드 지표 계산
-                // A. 완전 암기 (Interval >= 21)
+                // 2. [기존 유지] 상세 지표 4개
                 const matureCount = cards.filter(c => c.interval >= 21).length;
                 document.getElementById('txt-mature').innerText = matureCount + "개";
-
-                // B. 평균 기억 수명
+                
                 const totalInt = cards.reduce((acc, c) => acc + c.interval, 0);
                 const avgInt = cards.length > 0 ? Math.round(totalInt / cards.length) : 0;
                 document.getElementById('txt-avg-int').innerText = avgInt + "일";
-
-                // C. 뇌 고통 지수 (EaseFactor 평균 / 2.5 * 100)
+                
                 const totalEase = cards.reduce((acc, c) => acc + c.easeFactor, 0);
                 const avgEase = cards.length > 0 ? (totalEase / cards.length) : 2.5;
                 const difficulty = Math.round((avgEase / 2.5) * 100);
                 document.getElementById('txt-difficulty').innerText = difficulty + "%";
-
-                // D. 내일의 짐 (내일 Due 카드 수)
+                
                 const tmr = new Date();
                 tmr.setDate(tmr.getDate() + 1);
                 const tmrStr = tmr.toISOString().split('T')[0];
                 const tmrDue = cards.filter(c => c.nextReview === tmrStr).length;
                 document.getElementById('txt-tomorrow').innerText = tmrDue + "개";
 
-                // 3. [기록] 최근 7일 리스트
-                const listArea = document.getElementById('history-list-area');
-                listArea.innerHTML = '';
-                const today = new Date();
-                for(let i=0; i<7; i++) {
-                    const tempD = new Date();
-                    tempD.setDate(today.getDate() - i);
-                    const dateStr = tempD.toISOString().split('T')[0];
-                    const label = `${tempD.getMonth()+1}/${tempD.getDate()}`;
-                    const count = history[dateStr] || 0;
+                // 3. [NEW] 달력 렌더링 (7일 리스트 대체)
+                const year = viewDate.getFullYear();
+                const month = viewDate.getMonth(); 
+                document.getElementById('cal-month-title').innerText = `${year}.${String(month+1).padStart(2,'0')}`;
 
-                    const li = document.createElement('li');
-                    li.className = 'history-item';
-                    const isToday = (i === 0) ? " <span style='font-size:11px; color:#ff6b6b;'>(오늘)</span>" : "";
-                    li.innerHTML = `
-                        <span style="color:#666;">${label}${isToday}</span>
-                        <span class="history-count">${count}회</span>
-                    `;
-                    listArea.appendChild(li);
+                const calArea = document.getElementById('calendar-area');
+                calArea.innerHTML = '';
+
+                // 요일 헤더
+                const days = ['일','월','화','수','목','금','토'];
+                days.forEach(d => calArea.innerHTML += `<div class="cal-day-name">${d}</div>`);
+
+                // 날짜 계산
+                const firstDay = new Date(year, month, 1).getDay(); 
+                const lastDate = new Date(year, month + 1, 0).getDate(); 
+
+                // 앞쪽 빈칸
+                for(let i=0; i<firstDay; i++) {
+                    calArea.innerHTML += `<div></div>`;
                 }
+
+                let monthTotal = 0;
+                const todayStr = new Date().toISOString().split('T')[0];
+
+                for(let i=1; i<=lastDate; i++) {
+                    const dateObj = new Date(year, month, i);
+                    const y = dateObj.getFullYear();
+                    const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+                    const d = String(dateObj.getDate()).padStart(2, '0');
+                    const dateKey = `${y}-${m}-${d}`;
+
+                    const count = history[dateKey] || 0;
+                    if(count > 0) monthTotal += count;
+
+                    // 스타일 결정
+                    let classes = 'cal-date';
+                    if (dateKey === todayStr) classes += ' today';
+                    if (count > 0) classes += ' level-1';
+                    if (count >= 10) classes += ' level-2';
+
+                    calArea.innerHTML += `
+                        <div class="${classes}">
+                            ${i}
+                        </div>
+                    `;
+                }
+                
+                document.getElementById('cal-month-total').innerText = monthTotal + "회";
+            },
+
+            changeMonth: (delta) => {
+                viewDate.setMonth(viewDate.getMonth() + delta);
+                logic.renderCalendarStats();
             },
 
             formatInterval: (days) => {
@@ -360,7 +414,6 @@
                     cards.push(currentCard);
                 }
 
-                // [저장] 통계 기록 업데이트
                 const today = new Date().toISOString().split('T')[0];
                 if (!history[today]) history[today] = 0;
                 history[today]++;
@@ -434,4 +487,3 @@
     </script>
 </body>
 </html>
-
