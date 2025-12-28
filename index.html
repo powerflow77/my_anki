@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>나만의 단어장 (Final Clean)</title>
+    <title>나만의 단어장 (Multi-line Support)</title>
     <style>
         /* 기본 스타일 */
         body { font-family: 'Apple SD Gothic Neo', sans-serif; background-color: #f0f2f5; margin: 0; display: flex; flex-direction: column; height: 100vh; }
@@ -71,7 +71,9 @@
 
         /* 입력 및 리스트 */
         .input-area { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px;}
-        input { width: 100%; padding: 12px; margin: 5px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
+        
+        /* [수정] textarea 스타일 추가 및 input 공통 스타일 */
+        input, textarea { width: 100%; padding: 12px; margin: 5px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; font-family: inherit; resize: vertical; }
         
         #search-input { background-color: #f9f9f9; border-color: #eee; margin-bottom: 0; }
         #search-input:focus { background-color: white; border-color: #007bff; }
@@ -82,8 +84,10 @@
         
         .card-item { background: white; padding: 15px; border-radius: 10px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
         .card-info { text-align: left; width: 70%; }
-        .card-front { font-weight: bold; font-size: 16px; color: #333; margin-bottom: 5px; }
-        .card-back { font-size: 14px; color: #888; }
+        
+        /* [수정] 줄바꿈이 보이도록 white-space 속성 추가 */
+        .card-front { font-weight: bold; font-size: 16px; color: #333; margin-bottom: 5px; white-space: pre-wrap; word-break: break-all; }
+        .card-back { font-size: 14px; color: #888; white-space: pre-wrap; word-break: break-all; }
         
         .del-btn { background: #ff4d4d; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold; }
         .edit-btn { background: #007bff; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold; margin-right: 5px; }
@@ -112,8 +116,9 @@
             margin-bottom: 20px; 
             position: relative; 
         }
-        .front { font-size: 30px; font-weight: bold; color: #333; }
-        .back { font-size: 24px; color: #007bff; margin-top: 30px; font-weight: bold; }
+        /* [수정] 카드 내용 줄바꿈 허용 */
+        .front { font-size: 30px; font-weight: bold; color: #333; white-space: pre-wrap; word-break: break-all; }
+        .back { font-size: 24px; color: #007bff; margin-top: 30px; font-weight: bold; white-space: pre-wrap; word-break: break-all; }
         
         /* 버튼 그룹 */
         .btn-group { display: flex; gap: 8px; width: 100%; }
@@ -150,8 +155,8 @@
         <div id="view-manage" class="screen active">
             <div class="input-area">
                 <h3 style="margin-top:0; font-size:18px;">새 카드 추가</h3>
-                <input type="text" id="new-front" placeholder="앞면 (질문/영어)">
-                <input type="text" id="new-back" placeholder="뒷면 (정답/한글)">
+                <textarea id="new-front" placeholder="앞면 (질문/영어) - 엔터로 줄바꿈" rows="2"></textarea>
+                <textarea id="new-back" placeholder="뒷면 (정답/한글) - 엔터로 줄바꿈" rows="2"></textarea>
                 <button class="add-btn" onclick="logic.addCard()">저장하기</button>
             </div>
             
@@ -350,15 +355,15 @@
                 return `${year}-${month}-${day}`;
             },
 
-            // [수정] Shift + Enter 키 이벤트 포함된 수정 모드
             toggleEditMode: (id) => {
                 const card = cards.find(c => c.id === id);
                 if (!card) return;
                 const wrap = document.getElementById(`card-wrap-${id}`);
+                // [수정] 수정 모드에서도 textarea 사용 (줄바꿈 가능)
                 wrap.innerHTML = `
                     <div style="width:100%;">
-                        <input type="text" id="edit-front-${id}" class="edit-input" value="${card.front}" onkeydown="if(event.shiftKey && event.key === 'Enter') logic.saveEdit(${id})">
-                        <input type="text" id="edit-back-${id}" class="edit-input" value="${card.back}" onkeydown="if(event.shiftKey && event.key === 'Enter') logic.saveEdit(${id})">
+                        <textarea id="edit-front-${id}" class="edit-input" rows="3">${card.front}</textarea>
+                        <textarea id="edit-back-${id}" class="edit-input" rows="3">${card.back}</textarea>
                         <div style="text-align:right;">
                             <button class="save-btn" onclick="logic.saveEdit(${id})">저장</button>
                             <button class="cancel-btn" onclick="ui.renderList()">취소</button>
