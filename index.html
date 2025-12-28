@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>나만의 단어장 (Calendar Final)</title>
+    <title>나만의 단어장 (Search Added)</title>
     <style>
         /* 기본 스타일 */
         body { font-family: 'Apple SD Gothic Neo', sans-serif; background-color: #f0f2f5; margin: 0; display: flex; flex-direction: column; height: 100vh; }
@@ -16,22 +16,20 @@
         .screen { width: 100%; max-width: 450px; display: none; } 
         .screen.active { display: block; } 
 
-        /* --- 통계 스타일 --- */
+        /* --- 통계 스타일 (기존 유지) --- */
         .stats-container { background: white; padding: 25px 20px; border-radius: 20px; width: 100%; box-sizing: border-box; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 20px; }
         
-        /* 1. 상단 요약 */
         .stat-header-row { display: flex; justify-content: space-between; border-bottom: 2px solid #f0f0f0; padding-bottom: 20px; margin-bottom: 20px; }
         .stat-header-item { text-align: center; width: 48%; }
         .stat-big-num { font-size: 32px; font-weight: bold; color: #333; display: block; line-height: 1.2; }
         .stat-caption { font-size: 13px; color: #888; font-weight: 500; }
 
-        /* 2. 상세 지표 (4개 그리드) - 유지됨 */
         .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 25px; border-bottom: 2px solid #f0f0f0; padding-bottom: 25px; }
         .stat-box { background-color: #f9f9f9; border-radius: 12px; padding: 15px; text-align: center; }
         .stat-box-val { font-size: 18px; font-weight: bold; color: #333; margin-bottom: 4px; }
         .stat-box-lbl { font-size: 11px; color: #666; }
 
-        /* 3. 달력 스타일 (NEW) */
+        /* 달력 스타일 (기존 유지) */
         .calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
         .cal-btn { background: white; border: 1px solid #ddd; border-radius: 50%; width: 32px; height: 32px; cursor: pointer; font-weight: bold; color: #555; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
         .cal-title { font-size: 18px; font-weight: bold; color: #333; }
@@ -51,8 +49,6 @@
             background: #f9f9f9; 
             font-weight: 500;
         }
-        
-        /* 달력 색상 (공부량에 따라) */
         .cal-date.level-1 { background-color: #e6f7ff; color: #007bff; font-weight: bold; } 
         .cal-date.level-2 { background-color: #007bff; color: white; font-weight: bold; }   
         .cal-date.today { border: 2px solid #0056b3; }
@@ -68,6 +64,11 @@
         /* 입력 및 리스트 */
         .input-area { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px;}
         input { width: 100%; padding: 12px; margin: 5px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
+        
+        /* [NEW] 검색창 스타일 */
+        #search-input { background-color: #f9f9f9; border-color: #eee; margin-bottom: 0; }
+        #search-input:focus { background-color: white; border-color: #007bff; }
+
         .add-btn { background: black; color: white; width: 100%; padding: 12px; margin-top: 10px; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; }
         
         .list-title { margin: 20px 0 10px 0; font-weight: bold; color: #555; display: flex; justify-content: space-between; align-items: center; }
@@ -108,6 +109,11 @@
                 <input type="text" id="new-back" placeholder="뒷면 (정답/한글)">
                 <button class="add-btn" onclick="logic.addCard()">저장하기</button>
             </div>
+            
+            <div style="width:100%; margin-bottom:10px;">
+                <input type="text" id="search-input" placeholder="🔍 단어 검색 (앞면/뒷면)" onkeyup="ui.renderList()" style="margin:0;">
+            </div>
+
             <div class="list-title"><span>서버 저장 목록</span> <button onclick="logic.loadCards()" style="background:none; border:none; color:blue; cursor:pointer;">🔄 새로고침</button></div>
             <div id="card-list-area"></div>
         </div>
@@ -190,8 +196,7 @@
                     <button class="cal-btn" onclick="logic.changeMonth(1)"> > </button>
                 </div>
 
-                <div class="calendar-grid" id="calendar-area">
-                    </div>
+                <div class="calendar-grid" id="calendar-area"></div>
                 
                 <div style="text-align:center; margin-top:15px; font-size:13px; color:#888;">
                     해당 월 학습량: <span id="cal-month-total" style="font-weight:bold; color:#007bff;">0회</span>
@@ -242,10 +247,22 @@
                 logic.updateButtonLabels(); 
             },
 
+            // [수정됨] 검색 기능 추가된 리스트 렌더링
             renderList: () => {
                 const listArea = document.getElementById('card-list-area');
                 listArea.innerHTML = '';
-                [...cards].reverse().forEach(card => {
+
+                // 1. 검색어 가져오기
+                const query = document.getElementById('search-input') ? document.getElementById('search-input').value.toLowerCase() : "";
+
+                // 2. 필터링 (원본 cards는 보존)
+                const filtered = cards.filter(c => 
+                    c.front.toLowerCase().includes(query) || 
+                    c.back.toLowerCase().includes(query)
+                );
+
+                // 3. 필터링된 목록 출력
+                [...filtered].reverse().forEach(card => {
                     const div = document.createElement('div');
                     div.className = 'card-item';
                     div.innerHTML = `<div class="card-info"><div class="card-front">${card.front}</div><div class="card-back">${card.back}</div></div><button class="del-btn" onclick="logic.deleteCard(${card.id})">삭제</button>`;
@@ -266,9 +283,7 @@
         };
 
         window.logic = {
-            // [핵심] 통계 로직 (수치 계산 + 달력 그리기)
             renderCalendarStats: () => {
-                // 1. [기존 유지] 전체 통계 계산
                 const total = Object.values(history).reduce((a, b) => a + b, 0);
                 document.getElementById('txt-total-count').innerText = total + "회";
 
@@ -283,7 +298,6 @@
                 }
                 document.getElementById('txt-streak-count').innerText = streak + "일";
 
-                // 2. [기존 유지] 상세 지표 4개
                 const matureCount = cards.filter(c => c.interval >= 21).length;
                 document.getElementById('txt-mature').innerText = matureCount + "개";
                 
@@ -302,7 +316,6 @@
                 const tmrDue = cards.filter(c => c.nextReview === tmrStr).length;
                 document.getElementById('txt-tomorrow').innerText = tmrDue + "개";
 
-                // 3. [NEW] 달력 렌더링 (7일 리스트 대체)
                 const year = viewDate.getFullYear();
                 const month = viewDate.getMonth(); 
                 document.getElementById('cal-month-title').innerText = `${year}.${String(month+1).padStart(2,'0')}`;
@@ -310,15 +323,12 @@
                 const calArea = document.getElementById('calendar-area');
                 calArea.innerHTML = '';
 
-                // 요일 헤더
                 const days = ['일','월','화','수','목','금','토'];
                 days.forEach(d => calArea.innerHTML += `<div class="cal-day-name">${d}</div>`);
 
-                // 날짜 계산
                 const firstDay = new Date(year, month, 1).getDay(); 
                 const lastDate = new Date(year, month + 1, 0).getDate(); 
 
-                // 앞쪽 빈칸
                 for(let i=0; i<firstDay; i++) {
                     calArea.innerHTML += `<div></div>`;
                 }
@@ -336,7 +346,6 @@
                     const count = history[dateKey] || 0;
                     if(count > 0) monthTotal += count;
 
-                    // 스타일 결정
                     let classes = 'cal-date';
                     if (dateKey === todayStr) classes += ' today';
                     if (count > 0) classes += ' level-1';
@@ -453,6 +462,8 @@
                 await logic.saveToDB();
                 document.getElementById('new-front').value = '';
                 document.getElementById('new-back').value = '';
+                // [수정] 카드 추가 후 검색창 초기화
+                document.getElementById('search-input').value = ''; 
                 ui.renderList();
                 alert("저장 완료!");
             },
