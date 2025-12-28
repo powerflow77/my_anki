@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>나만의 단어장 (Search Added)</title>
+    <title>나만의 단어장 (Undo Added)</title>
     <style>
         /* 기본 스타일 */
         body { font-family: 'Apple SD Gothic Neo', sans-serif; background-color: #f0f2f5; margin: 0; display: flex; flex-direction: column; height: 100vh; }
@@ -65,7 +65,6 @@
         .input-area { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px;}
         input { width: 100%; padding: 12px; margin: 5px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
         
-        /* [NEW] 검색창 스타일 */
         #search-input { background-color: #f9f9f9; border-color: #eee; margin-bottom: 0; }
         #search-input:focus { background-color: white; border-color: #007bff; }
 
@@ -87,6 +86,20 @@
         .btn-group { display: flex; gap: 8px; width: 100%; }
         .btn-group button { flex: 1; padding: 12px 5px; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; font-size: 13px; color: #333; box-shadow: 0 2px 5px rgba(0,0,0,0.1); transition: transform 0.1s; }
         .btn-group button:active { transform: scale(0.95); }
+
+        /* [NEW] Undo 버튼 스타일 */
+        .undo-btn { 
+            margin-top: 15px; 
+            background: #6c757d; 
+            color: white; 
+            border: none; 
+            padding: 8px 20px; 
+            border-radius: 20px; 
+            font-size: 14px; 
+            cursor: pointer; 
+            display: none; /* 평소엔 숨김 */
+        }
+        .undo-btn:hover { background: #5a6268; }
 
         #loading { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.9); z-index:999; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 20px; color: #333; }
     </style>
@@ -149,7 +162,12 @@
                     <button id="btn-4" style="background:#fdffb6" onclick="logic.rateCard(4)">Good</button>
                     <button id="btn-5" style="background:#caffbf" onclick="logic.rateCard(5)">Easy</button>
                 </div>
+
+                <div style="text-align: center;">
+                    <button id="btn-undo" class="undo-btn" onclick="logic.undoLastAction()">↩️ 실행 취소</button>
+                </div>
             </div>
+            
             <div id="no-study" style="text-align: center; display: block;">
                 <h2>🎉</h2><h3>오늘 공부 끝!</h3><p>복습할 카드가 없습니다.</p>
                 <button class="add-btn" onclick="ui.switchTab('stats')">결과 확인하기</button>
@@ -227,6 +245,7 @@
         let history = {};
         let currentCard = null;
         let viewDate = new Date(); 
+        let backupState = null; // [NEW] 실행 취소용 백업 변수
 
         window.ui = {
             switchTab: (tabName) => {
@@ -247,21 +266,12 @@
                 logic.updateButtonLabels(); 
             },
 
-            // [수정됨] 검색 기능 추가된 리스트 렌더링
             renderList: () => {
                 const listArea = document.getElementById('card-list-area');
                 listArea.innerHTML = '';
-
-                // 1. 검색어 가져오기
                 const query = document.getElementById('search-input') ? document.getElementById('search-input').value.toLowerCase() : "";
+                const filtered = cards.filter(c => c.front.toLowerCase().includes(query) || c.back.toLowerCase().includes(query));
 
-                // 2. 필터링 (원본 cards는 보존)
-                const filtered = cards.filter(c => 
-                    c.front.toLowerCase().includes(query) || 
-                    c.back.toLowerCase().includes(query)
-                );
-
-                // 3. 필터링된 목록 출력
                 [...filtered].reverse().forEach(card => {
                     const div = document.createElement('div');
                     div.className = 'card-item';
@@ -408,7 +418,33 @@
                 });
             },
 
+            // [NEW] 실행 취소 기능
+            undoLastAction: async () => {
+                if (!backupState) return alert("실행 취소할 작업이 없습니다.");
+                
+                // 데이터 원상 복구
+                cards = JSON.parse(JSON.stringify(backupState.cards));
+                history = JSON.parse(JSON.stringify(backupState.history));
+                
+                // 백업 비우기 및 버튼 숨기기
+                backupState = null;
+                document.getElementById('btn-undo').style.display = 'none';
+
+                // 저장 및 화면 갱신
+                await logic.saveToDB();
+                logic.prepareStudy();
+                alert("이전 상태로 되돌렸습니다!");
+            },
+
             rateCard: async (quality) => {
+                // [NEW] 실행 취소를 위해 현재 상태 백업 (Deep Copy)
+                backupState = {
+                    cards: JSON.parse(JSON.stringify(cards)),
+                    history: JSON.parse(JSON.stringify(history))
+                };
+                // 실행 취소 버튼 보이기
+                document.getElementById('btn-undo').style.display = 'inline-block';
+
                 const res = logic.calculateNext(quality);
                 currentCard.interval = res.interval;
                 currentCard.repetitions = res.repetitions;
@@ -462,7 +498,6 @@
                 await logic.saveToDB();
                 document.getElementById('new-front').value = '';
                 document.getElementById('new-back').value = '';
-                // [수정] 카드 추가 후 검색창 초기화
                 document.getElementById('search-input').value = ''; 
                 ui.renderList();
                 alert("저장 완료!");
