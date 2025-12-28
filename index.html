@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>나만의 단어장 (Inline Edit)</title>
+    <title>나만의 단어장 (KST Time Fix)</title>
     <style>
         /* 기본 스타일 */
         body { font-family: 'Apple SD Gothic Neo', sans-serif; background-color: #f0f2f5; margin: 0; display: flex; flex-direction: column; height: 100vh; }
@@ -89,7 +89,7 @@
         .edit-btn { background: #007bff; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold; margin-right: 5px; }
         .edit-btn:hover { background: #0056b3; }
 
-        /* [NEW] 인라인 수정 모드 스타일 */
+        /* 인라인 수정 모드 */
         .edit-input { width: 100%; padding: 8px; margin-bottom: 5px; border: 1px solid #007bff; border-radius: 5px; font-size: 14px; }
         .save-btn { background: #28a745; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px; margin-right: 5px; }
         .cancel-btn { background: #6c757d; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px; }
@@ -132,7 +132,27 @@
             cursor: pointer; 
             display: none; 
         }
-        .undo-btn:hover { background: #5a6268; }
+        
+        /* 러닝 모드 버튼 */
+        .run-mode-btn {
+            background: #333; color: white; border: none; padding: 10px 20px; border-radius: 25px; 
+            font-weight: bold; cursor: pointer; margin-top: 20px; display: flex; align-items: center; gap: 5px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+        .run-mode-btn:active { transform: scale(0.95); }
+
+        /* 러닝 모드 오버레이 */
+        #running-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: black; z-index: 9999; display: none;
+            flex-direction: column; justify-content: center; align-items: center;
+            color: white; text-align: center;
+        }
+        .running-text { font-size: 24px; font-weight: bold; margin-bottom: 30px; }
+        .stop-run-btn {
+            width: 80px; height: 80px; border-radius: 50%; background: #ff4d4d;
+            border: 4px solid white; color: white; font-weight: bold; font-size: 16px; cursor: pointer;
+        }
 
         #loading { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.9); z-index:999; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 20px; color: #333; }
     </style>
@@ -140,6 +160,12 @@
 <body>
 
     <div id="loading">데이터 로딩 중...</div>
+
+    <div id="running-overlay">
+        <div class="running-text">🏃 러닝 모드 실행 중<br><span style="font-size:14px; color:#888; font-weight:normal;">화면이 켜진 상태로 주머니에 넣으세요.</span></div>
+        <div id="running-status" style="margin-bottom:30px; color:#007bff; font-size:18px;">준비 중...</div>
+        <button class="stop-run-btn" onclick="logic.stopRunningMode()">정지</button>
+    </div>
 
     <nav>
         <div id="tab-manage" class="nav-item active" onclick="ui.switchTab('manage')">카드관리</div>
@@ -196,8 +222,9 @@
                     <button id="btn-5" style="background:#caffbf" onclick="logic.rateCard(5)">Easy</button>
                 </div>
 
-                <div style="text-align: center;">
+                <div style="text-align: center; display:flex; flex-direction:column; align-items:center;">
                     <button id="btn-undo" class="undo-btn" onclick="logic.undoLastAction()">↩️ 실행 취소</button>
+                    <button class="run-mode-btn" onclick="logic.startRunningMode()">🏃 러닝 모드 (듣기)</button>
                 </div>
             </div>
             
@@ -279,6 +306,8 @@
         let currentCard = null;
         let viewDate = new Date(); 
         let backupState = null;
+        let isRunning = false;
+        let wakeLock = null;
 
         window.ui = {
             switchTab: (tabName) => {
@@ -307,9 +336,8 @@
 
                 [...filtered].reverse().forEach(card => {
                     const div = document.createElement('div');
-                    div.id = `card-wrap-${card.id}`; // [NEW] 인라인 수정을 위해 ID 부여
+                    div.id = `card-wrap-${card.id}`; 
                     div.className = 'card-item';
-                    
                     div.innerHTML = `
                         <div class="card-info">
                             <div class="card-front">${card.front}</div>
@@ -325,7 +353,7 @@
             },
 
             updateStudyDashboard: () => {
-                const today = new Date().toISOString().split('T')[0];
+                const today = logic.getTodayStr(); // [KST Fix]
                 const dueCards = cards.filter(c => c.nextReview <= today);
                 const newCount = dueCards.filter(c => c.repetitions === 0).length;
                 const revCount = dueCards.filter(c => c.repetitions > 0).length;
@@ -337,13 +365,75 @@
         };
 
         window.logic = {
-            // [NEW] 인라인 수정 모드 전환
+            // [NEW] 한국 시간(KST) 기준 날짜 문자열 반환 함수 (핵심)
+            getTodayStr: () => {
+                const d = new Date();
+                const year = d.getFullYear();
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            },
+            
+            // 날짜 객체를 YYYY-MM-DD 문자열로 변환
+            formatDate: (d) => {
+                const year = d.getFullYear();
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            },
+
+            startRunningMode: async () => {
+                const today = logic.getTodayStr(); // [KST Fix]
+                const dueCards = cards.filter(c => c.nextReview <= today);
+                if (dueCards.length === 0) return alert("오늘 공부할 카드가 없습니다!");
+                try {
+                    if ('wakeLock' in navigator) { wakeLock = await navigator.wakeLock.request('screen'); }
+                } catch (err) { console.log('Wake Lock Error:', err); }
+                document.getElementById('running-overlay').style.display = 'flex';
+                isRunning = true;
+                logic.runLoop(dueCards, 0);
+            },
+
+            stopRunningMode: () => {
+                isRunning = false;
+                window.speechSynthesis.cancel();
+                document.getElementById('running-overlay').style.display = 'none';
+                if (wakeLock !== null) { wakeLock.release().then(() => { wakeLock = null; }); }
+            },
+
+            runLoop: async (list, index) => {
+                if (!isRunning) return;
+                if (index >= list.length) {
+                    logic.speakText("오늘 학습이 모두 끝났습니다. 고생하셨습니다.");
+                    document.getElementById('running-status').innerText = "완료!";
+                    return;
+                }
+                const card = list[index];
+                document.getElementById('running-status').innerText = `${index + 1} / ${list.length} 단어 학습 중...`;
+                await logic.speakText(card.front, 'en-US');
+                if (!isRunning) return;
+                await new Promise(r => setTimeout(r, 2000));
+                if (!isRunning) return;
+                await logic.speakText(card.back, 'ko-KR');
+                if (!isRunning) return;
+                await new Promise(r => setTimeout(r, 1500));
+                logic.runLoop(list, index + 1);
+            },
+
+            speakText: (text, lang) => {
+                return new Promise((resolve) => {
+                    const utterance = new SpeechSynthesisUtterance(text);
+                    if (lang) utterance.lang = lang;
+                    utterance.rate = 0.9;
+                    utterance.onend = resolve;
+                    window.speechSynthesis.speak(utterance);
+                });
+            },
+
             toggleEditMode: (id) => {
                 const card = cards.find(c => c.id === id);
                 if (!card) return;
-                
                 const wrap = document.getElementById(`card-wrap-${id}`);
-                // 기존 HTML을 입력창으로 교체
                 wrap.innerHTML = `
                     <div style="width:100%;">
                         <input type="text" id="edit-front-${id}" class="edit-input" value="${card.front}">
@@ -356,19 +446,16 @@
                 `;
             },
 
-            // [NEW] 수정 내용 저장
             saveEdit: async (id) => {
                 const newFront = document.getElementById(`edit-front-${id}`).value;
                 const newBack = document.getElementById(`edit-back-${id}`).value;
-                
                 if (!newFront || !newBack) return alert("내용을 입력하세요.");
-
                 const card = cards.find(c => c.id === id);
                 if (card) {
                     card.front = newFront;
                     card.back = newBack;
                     await logic.saveToDB();
-                    ui.renderList(); // 목록 새로고침 (뷰 모드로 복귀)
+                    ui.renderList();
                 }
             },
 
@@ -377,9 +464,9 @@
                 document.getElementById('txt-total-count').innerText = total + "회";
 
                 let streak = 0;
-                let d = new Date();
+                let d = new Date(); // 로컬 시간 사용
                 while(true) {
-                    const dateStr = d.toISOString().split('T')[0];
+                    const dateStr = logic.formatDate(d); // [KST Fix]
                     if ((history[dateStr] || 0) > 0) {
                         streak++;
                         d.setDate(d.getDate() - 1);
@@ -401,7 +488,7 @@
                 
                 const tmr = new Date();
                 tmr.setDate(tmr.getDate() + 1);
-                const tmrStr = tmr.toISOString().split('T')[0];
+                const tmrStr = logic.formatDate(tmr); // [KST Fix]
                 const tmrDue = cards.filter(c => c.nextReview === tmrStr).length;
                 document.getElementById('txt-tomorrow').innerText = tmrDue + "개";
 
@@ -423,14 +510,11 @@
                 }
 
                 let monthTotal = 0;
-                const todayStr = new Date().toISOString().split('T')[0];
+                const todayStr = logic.getTodayStr(); // [KST Fix]
 
                 for(let i=1; i<=lastDate; i++) {
                     const dateObj = new Date(year, month, i);
-                    const y = dateObj.getFullYear();
-                    const m = String(dateObj.getMonth() + 1).padStart(2, '0');
-                    const d = String(dateObj.getDate()).padStart(2, '0');
-                    const dateKey = `${y}-${m}-${d}`;
+                    const dateKey = logic.formatDate(dateObj); // [KST Fix]
 
                     const count = history[dateKey] || 0;
                     if(count > 0) monthTotal += count;
@@ -519,16 +603,18 @@
                 currentCard.interval = res.interval;
                 currentCard.repetitions = res.repetitions;
                 currentCard.easeFactor = res.easeFactor;
+                
+                // [KST Fix] 다음 리뷰 날짜 계산
                 const nextDate = new Date();
                 nextDate.setDate(nextDate.getDate() + res.interval);
-                currentCard.nextReview = nextDate.toISOString().split('T')[0];
+                currentCard.nextReview = logic.formatDate(nextDate); 
 
                 if (quality === 1) {
                     cards = cards.filter(c => c.id !== currentCard.id);
                     cards.push(currentCard);
                 }
 
-                const today = new Date().toISOString().split('T')[0];
+                const today = logic.getTodayStr(); // [KST Fix]
                 if (!history[today]) history[today] = 0;
                 history[today]++;
 
@@ -563,7 +649,8 @@
                 const f = document.getElementById('new-front').value;
                 const b = document.getElementById('new-back').value;
                 if (!f || !b) return alert('입력하세요!');
-                cards.push({ id: Date.now(), front: f, back: b, interval: 0, repetitions: 0, easeFactor: 2.5, nextReview: new Date().toISOString().split('T')[0] });
+                // [KST Fix] nextReview를 오늘 날짜(한국시간)로 설정
+                cards.push({ id: Date.now(), front: f, back: b, interval: 0, repetitions: 0, easeFactor: 2.5, nextReview: logic.getTodayStr() });
                 await logic.saveToDB();
                 document.getElementById('new-front').value = '';
                 document.getElementById('new-back').value = '';
@@ -581,8 +668,9 @@
             },
 
             prepareStudy: () => {
-                ui.updateStudyDashboard();
-                const today = new Date().toISOString().split('T')[0];
+                // [KST Fix]
+                const today = logic.getTodayStr();
+                ui.updateStudyDashboard(); // updateStudyDashboard 내부에서도 today 재계산함
                 const dueCards = cards.filter(c => c.nextReview <= today);
                 if (dueCards.length > 0) {
                     currentCard = dueCards[0];
