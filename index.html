@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>나만의 단어장 (KST Time Fix)</title>
+    <title>나만의 단어장 (Final Clean)</title>
     <style>
         /* 기본 스타일 */
         body { font-family: 'Apple SD Gothic Neo', sans-serif; background-color: #f0f2f5; margin: 0; display: flex; flex-direction: column; height: 100vh; }
@@ -133,39 +133,12 @@
             display: none; 
         }
         
-        /* 러닝 모드 버튼 */
-        .run-mode-btn {
-            background: #333; color: white; border: none; padding: 10px 20px; border-radius: 25px; 
-            font-weight: bold; cursor: pointer; margin-top: 20px; display: flex; align-items: center; gap: 5px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-        }
-        .run-mode-btn:active { transform: scale(0.95); }
-
-        /* 러닝 모드 오버레이 */
-        #running-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: black; z-index: 9999; display: none;
-            flex-direction: column; justify-content: center; align-items: center;
-            color: white; text-align: center;
-        }
-        .running-text { font-size: 24px; font-weight: bold; margin-bottom: 30px; }
-        .stop-run-btn {
-            width: 80px; height: 80px; border-radius: 50%; background: #ff4d4d;
-            border: 4px solid white; color: white; font-weight: bold; font-size: 16px; cursor: pointer;
-        }
-
         #loading { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.9); z-index:999; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 20px; color: #333; }
     </style>
 </head>
 <body>
 
     <div id="loading">데이터 로딩 중...</div>
-
-    <div id="running-overlay">
-        <div class="running-text">🏃 러닝 모드 실행 중<br><span style="font-size:14px; color:#888; font-weight:normal;">화면이 켜진 상태로 주머니에 넣으세요.</span></div>
-        <div id="running-status" style="margin-bottom:30px; color:#007bff; font-size:18px;">준비 중...</div>
-        <button class="stop-run-btn" onclick="logic.stopRunningMode()">정지</button>
-    </div>
 
     <nav>
         <div id="tab-manage" class="nav-item active" onclick="ui.switchTab('manage')">카드관리</div>
@@ -222,9 +195,8 @@
                     <button id="btn-5" style="background:#caffbf" onclick="logic.rateCard(5)">Easy</button>
                 </div>
 
-                <div style="text-align: center; display:flex; flex-direction:column; align-items:center;">
+                <div style="text-align: center;">
                     <button id="btn-undo" class="undo-btn" onclick="logic.undoLastAction()">↩️ 실행 취소</button>
-                    <button class="run-mode-btn" onclick="logic.startRunningMode()">🏃 러닝 모드 (듣기)</button>
                 </div>
             </div>
             
@@ -306,8 +278,6 @@
         let currentCard = null;
         let viewDate = new Date(); 
         let backupState = null;
-        let isRunning = false;
-        let wakeLock = null;
 
         window.ui = {
             switchTab: (tabName) => {
@@ -353,7 +323,7 @@
             },
 
             updateStudyDashboard: () => {
-                const today = logic.getTodayStr(); // [KST Fix]
+                const today = logic.getTodayStr(); 
                 const dueCards = cards.filter(c => c.nextReview <= today);
                 const newCount = dueCards.filter(c => c.repetitions === 0).length;
                 const revCount = dueCards.filter(c => c.repetitions > 0).length;
@@ -365,7 +335,6 @@
         };
 
         window.logic = {
-            // [NEW] 한국 시간(KST) 기준 날짜 문자열 반환 함수 (핵심)
             getTodayStr: () => {
                 const d = new Date();
                 const year = d.getFullYear();
@@ -374,7 +343,6 @@
                 return `${year}-${month}-${day}`;
             },
             
-            // 날짜 객체를 YYYY-MM-DD 문자열로 변환
             formatDate: (d) => {
                 const year = d.getFullYear();
                 const month = String(d.getMonth() + 1).padStart(2, '0');
@@ -382,62 +350,15 @@
                 return `${year}-${month}-${day}`;
             },
 
-            startRunningMode: async () => {
-                const today = logic.getTodayStr(); // [KST Fix]
-                const dueCards = cards.filter(c => c.nextReview <= today);
-                if (dueCards.length === 0) return alert("오늘 공부할 카드가 없습니다!");
-                try {
-                    if ('wakeLock' in navigator) { wakeLock = await navigator.wakeLock.request('screen'); }
-                } catch (err) { console.log('Wake Lock Error:', err); }
-                document.getElementById('running-overlay').style.display = 'flex';
-                isRunning = true;
-                logic.runLoop(dueCards, 0);
-            },
-
-            stopRunningMode: () => {
-                isRunning = false;
-                window.speechSynthesis.cancel();
-                document.getElementById('running-overlay').style.display = 'none';
-                if (wakeLock !== null) { wakeLock.release().then(() => { wakeLock = null; }); }
-            },
-
-            runLoop: async (list, index) => {
-                if (!isRunning) return;
-                if (index >= list.length) {
-                    logic.speakText("오늘 학습이 모두 끝났습니다. 고생하셨습니다.");
-                    document.getElementById('running-status').innerText = "완료!";
-                    return;
-                }
-                const card = list[index];
-                document.getElementById('running-status').innerText = `${index + 1} / ${list.length} 단어 학습 중...`;
-                await logic.speakText(card.front, 'en-US');
-                if (!isRunning) return;
-                await new Promise(r => setTimeout(r, 2000));
-                if (!isRunning) return;
-                await logic.speakText(card.back, 'ko-KR');
-                if (!isRunning) return;
-                await new Promise(r => setTimeout(r, 1500));
-                logic.runLoop(list, index + 1);
-            },
-
-            speakText: (text, lang) => {
-                return new Promise((resolve) => {
-                    const utterance = new SpeechSynthesisUtterance(text);
-                    if (lang) utterance.lang = lang;
-                    utterance.rate = 0.9;
-                    utterance.onend = resolve;
-                    window.speechSynthesis.speak(utterance);
-                });
-            },
-
+            // [수정] Shift + Enter 키 이벤트 포함된 수정 모드
             toggleEditMode: (id) => {
                 const card = cards.find(c => c.id === id);
                 if (!card) return;
                 const wrap = document.getElementById(`card-wrap-${id}`);
                 wrap.innerHTML = `
                     <div style="width:100%;">
-                        <input type="text" id="edit-front-${id}" class="edit-input" value="${card.front}">
-                        <input type="text" id="edit-back-${id}" class="edit-input" value="${card.back}">
+                        <input type="text" id="edit-front-${id}" class="edit-input" value="${card.front}" onkeydown="if(event.shiftKey && event.key === 'Enter') logic.saveEdit(${id})">
+                        <input type="text" id="edit-back-${id}" class="edit-input" value="${card.back}" onkeydown="if(event.shiftKey && event.key === 'Enter') logic.saveEdit(${id})">
                         <div style="text-align:right;">
                             <button class="save-btn" onclick="logic.saveEdit(${id})">저장</button>
                             <button class="cancel-btn" onclick="ui.renderList()">취소</button>
@@ -464,9 +385,9 @@
                 document.getElementById('txt-total-count').innerText = total + "회";
 
                 let streak = 0;
-                let d = new Date(); // 로컬 시간 사용
+                let d = new Date(); 
                 while(true) {
-                    const dateStr = logic.formatDate(d); // [KST Fix]
+                    const dateStr = logic.formatDate(d);
                     if ((history[dateStr] || 0) > 0) {
                         streak++;
                         d.setDate(d.getDate() - 1);
@@ -488,7 +409,7 @@
                 
                 const tmr = new Date();
                 tmr.setDate(tmr.getDate() + 1);
-                const tmrStr = logic.formatDate(tmr); // [KST Fix]
+                const tmrStr = logic.formatDate(tmr);
                 const tmrDue = cards.filter(c => c.nextReview === tmrStr).length;
                 document.getElementById('txt-tomorrow').innerText = tmrDue + "개";
 
@@ -510,11 +431,11 @@
                 }
 
                 let monthTotal = 0;
-                const todayStr = logic.getTodayStr(); // [KST Fix]
+                const todayStr = logic.getTodayStr(); 
 
                 for(let i=1; i<=lastDate; i++) {
                     const dateObj = new Date(year, month, i);
-                    const dateKey = logic.formatDate(dateObj); // [KST Fix]
+                    const dateKey = logic.formatDate(dateObj);
 
                     const count = history[dateKey] || 0;
                     if(count > 0) monthTotal += count;
@@ -604,7 +525,6 @@
                 currentCard.repetitions = res.repetitions;
                 currentCard.easeFactor = res.easeFactor;
                 
-                // [KST Fix] 다음 리뷰 날짜 계산
                 const nextDate = new Date();
                 nextDate.setDate(nextDate.getDate() + res.interval);
                 currentCard.nextReview = logic.formatDate(nextDate); 
@@ -614,7 +534,7 @@
                     cards.push(currentCard);
                 }
 
-                const today = logic.getTodayStr(); // [KST Fix]
+                const today = logic.getTodayStr(); 
                 if (!history[today]) history[today] = 0;
                 history[today]++;
 
@@ -649,7 +569,6 @@
                 const f = document.getElementById('new-front').value;
                 const b = document.getElementById('new-back').value;
                 if (!f || !b) return alert('입력하세요!');
-                // [KST Fix] nextReview를 오늘 날짜(한국시간)로 설정
                 cards.push({ id: Date.now(), front: f, back: b, interval: 0, repetitions: 0, easeFactor: 2.5, nextReview: logic.getTodayStr() });
                 await logic.saveToDB();
                 document.getElementById('new-front').value = '';
@@ -668,9 +587,8 @@
             },
 
             prepareStudy: () => {
-                // [KST Fix]
                 const today = logic.getTodayStr();
-                ui.updateStudyDashboard(); // updateStudyDashboard 내부에서도 today 재계산함
+                ui.updateStudyDashboard(); 
                 const dueCards = cards.filter(c => c.nextReview <= today);
                 if (dueCards.length > 0) {
                     currentCard = dueCards[0];
