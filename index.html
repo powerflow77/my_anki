@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>나만의 단어장 (Smart Again Logic)</title>
+    <title>나만의 단어장 (Real Smart Again)</title>
     <style>
         /* 기본 스타일 */
         body { font-family: 'Apple SD Gothic Neo', sans-serif; background-color: #f0f2f5; margin: 0; display: flex; flex-direction: column; height: 100vh; }
@@ -569,6 +569,7 @@
                 logic.prepareStudy();
             },
 
+            // [NEW] 지능형 Again 로직 적용
             rateCard: async (quality) => {
                 backupState = {
                     cards: JSON.parse(JSON.stringify(cards)),
@@ -585,11 +586,27 @@
                 nextDate.setDate(nextDate.getDate() + res.interval);
                 currentCard.nextReview = logic.formatDate(nextDate); 
 
+                // 1. 현재 카드 목록에서 제거 (일단 뺌)
+                cards = cards.filter(c => c.id !== currentCard.id);
+
                 if (quality === 1) {
-                    cards = cards.filter(c => c.id !== currentCard.id);
-                    // [Modified] Again 누르면 3번째 뒤로 끼워넣기 (새치기 로직)
-                    const insertIdx = Math.min(cards.length, 3);
-                    cards.splice(insertIdx, 0, currentCard);
+                    // [핵심] '오늘 공부할 카드(Due)' 중에서 3번째 녀석을 찾아서 그 뒤에 넣기
+                    const today = logic.getTodayStr();
+                    let dueCount = 0;
+                    let insertIndex = cards.length; // 기본값: 맨 뒤
+
+                    for(let i=0; i<cards.length; i++) {
+                        // 오늘 볼 카드면 카운트 증가
+                        if (cards[i].nextReview <= today) {
+                            dueCount++;
+                            // 3번째 Due 카드 발견하면 그 바로 뒤(i+1)가 넣을 자리
+                            if (dueCount === 3) {
+                                insertIndex = i + 1;
+                                break;
+                            }
+                        }
+                    }
+                    cards.splice(insertIndex, 0, currentCard);
                 }
 
                 const today = logic.getTodayStr(); 
