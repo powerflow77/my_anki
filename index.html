@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>나만의 단어장 (Pagination Added)</title>
+    <title>나만의 단어장 (Smart Again Logic)</title>
     <style>
         /* 기본 스타일 */
         body { font-family: 'Apple SD Gothic Neo', sans-serif; background-color: #f0f2f5; margin: 0; display: flex; flex-direction: column; height: 100vh; }
@@ -97,7 +97,7 @@
         .save-btn { background: #28a745; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px; margin-right: 5px; }
         .cancel-btn { background: #6c757d; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px; }
 
-        /* [NEW] 페이지네이션 스타일 */
+        /* 페이지네이션 스타일 */
         .pagination { display: flex; justify-content: center; gap: 5px; margin-top: 20px; width: 100%; flex-wrap: wrap; }
         .page-btn { background: white; border: 1px solid #ddd; padding: 8px 12px; border-radius: 8px; cursor: pointer; color: #555; font-size: 14px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
         .page-btn.active { background: black; color: white; border-color: black; font-weight: bold; }
@@ -290,7 +290,6 @@
         let viewDate = new Date(); 
         let backupState = null;
         
-        // [NEW] 페이지네이션 변수
         let currentPage = 1;
         const ITEMS_PER_PAGE = 20;
 
@@ -313,13 +312,11 @@
                 logic.updateButtonLabels(); 
             },
 
-            // [NEW] 검색 시 페이지 초기화
             searchReset: () => {
                 currentPage = 1;
                 ui.renderList();
             },
 
-            // [NEW] 페이지 변경 함수
             changePage: (page) => {
                 currentPage = page;
                 ui.renderList();
@@ -333,13 +330,11 @@
 
                 const query = document.getElementById('search-input') ? document.getElementById('search-input').value.toLowerCase() : "";
                 
-                // 1. 필터링
                 let filtered = cards.filter(c => c.front.toLowerCase().includes(query) || c.back.toLowerCase().includes(query));
                 
-                // 2. 최신순 정렬 (기존 로직 유지)
+                // 최신순 정렬
                 filtered = filtered.reverse();
 
-                // 3. 페이지네이션 계산
                 const totalItems = filtered.length;
                 const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE) || 1;
                 if (currentPage > totalPages) currentPage = totalPages;
@@ -348,7 +343,6 @@
                 const end = start + ITEMS_PER_PAGE;
                 const pageData = filtered.slice(start, end);
 
-                // 4. 리스트 렌더링 (20개만)
                 pageData.forEach(card => {
                     const div = document.createElement('div');
                     div.id = `card-wrap-${card.id}`; 
@@ -366,16 +360,10 @@
                     listArea.appendChild(div);
                 });
 
-                // 5. 페이지네이션 버튼 렌더링
                 if (totalPages > 1) {
                     let pagHTML = '';
                     
-                    // 이전 버튼
                     pagHTML += `<button class="page-btn" onclick="ui.changePage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>&lt;</button>`;
-                    
-                    // 숫자 버튼 (단순화: 전체 다 보여주거나 적당히 자르기. 일단 심플하게 1~Total)
-                    // 칸이 좁을 수 있으므로 최대 5개 정도만 보여주는 로직이 좋지만, 요청사항대로 단순 20개 끊기 구현에 집중.
-                    // 모바일 화면 고려하여 심플하게 현재 페이지 주변만 보여주겠습니다.
                     
                     let startPage = Math.max(1, currentPage - 2);
                     let endPage = Math.min(totalPages, startPage + 4);
@@ -385,7 +373,6 @@
                         pagHTML += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="ui.changePage(${i})">${i}</button>`;
                     }
 
-                    // 다음 버튼
                     pagHTML += `<button class="page-btn" onclick="ui.changePage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>&gt;</button>`;
                     
                     pagArea.innerHTML = pagHTML;
@@ -424,7 +411,6 @@
                 const card = cards.find(c => c.id === id);
                 if (!card) return;
                 const wrap = document.getElementById(`card-wrap-${id}`);
-                // [유지] textarea + Shift Enter
                 wrap.innerHTML = `
                     <div style="width:100%;">
                         <textarea id="edit-front-${id}" class="edit-input" rows="3" onkeydown="if(event.shiftKey && event.key === 'Enter') logic.saveEdit(${id})">${card.front}</textarea>
@@ -601,7 +587,9 @@
 
                 if (quality === 1) {
                     cards = cards.filter(c => c.id !== currentCard.id);
-                    cards.push(currentCard);
+                    // [Modified] Again 누르면 3번째 뒤로 끼워넣기 (새치기 로직)
+                    const insertIdx = Math.min(cards.length, 3);
+                    cards.splice(insertIdx, 0, currentCard);
                 }
 
                 const today = logic.getTodayStr(); 
@@ -624,7 +612,7 @@
                         cards = [];
                         history = {};
                     }
-                    ui.renderList(); // 여기서 페이지네이션 최초 적용됨
+                    ui.renderList();
                     ui.updateStudyDashboard();
                 } catch (e) { alert("로드 에러: " + e.message); }
                 document.getElementById('loading').style.display = 'none';
@@ -645,7 +633,6 @@
                 document.getElementById('new-back').value = '';
                 document.getElementById('search-input').value = ''; 
                 
-                // [NEW] 카드 추가 시 첫 페이지로 이동해서 내 카드 확인
                 currentPage = 1; 
                 ui.renderList();
                 alert("저장 완료!");
