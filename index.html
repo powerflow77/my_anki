@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>나만의 단어장 (Real Smart Again)</title>
+    <title>나만의 단어장 (History Log Added)</title>
     <style>
         /* 기본 스타일 */
         body { font-family: 'Apple SD Gothic Neo', sans-serif; background-color: #f0f2f5; margin: 0; display: flex; flex-direction: column; height: 100vh; }
@@ -46,6 +46,7 @@
             border-radius: 8px; 
             background: #f9f9f9; 
             position: relative; 
+            cursor: pointer; /* 클릭 가능 표시 */
         }
 
         .cal-date-num { position: absolute; top: 4px; left: 5px; font-size: 10px; color: #bbb; }
@@ -60,6 +61,11 @@
         .cal-date.level-2 .cal-daily-count { color: white; }
 
         .cal-date.today { border: 2px solid #0056b3; }
+        
+        /* [NEW] 로그 리스트 스타일 */
+        .log-container { margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px; width: 100%; display: none; }
+        .log-title { font-size: 14px; font-weight: bold; color: #555; margin-bottom: 10px; }
+        .log-item { background: #f8f9fa; padding: 10px; border-radius: 8px; margin-bottom: 6px; font-size: 13px; color: #333; border-left: 3px solid #007bff; }
 
         /* 학습하기 탭 현황판 */
         .status-box { background: white; padding: 20px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); text-align: center; margin-bottom: 20px; width: 100%; box-sizing: border-box; }
@@ -262,6 +268,11 @@
                 <div style="text-align:center; margin-top:15px; font-size:13px; color:#888;">
                     해당 월 학습량: <span id="cal-month-total" style="font-weight:bold; color:#007bff;">0회</span>
                 </div>
+
+                <div id="history-log-area" class="log-container">
+                    <div class="log-title">📋 학습 기록 로그 (<span id="log-date-title"></span>)</div>
+                    <div id="log-list"></div>
+                </div>
             </div>
         </div>
     </div>
@@ -331,8 +342,6 @@
                 const query = document.getElementById('search-input') ? document.getElementById('search-input').value.toLowerCase() : "";
                 
                 let filtered = cards.filter(c => c.front.toLowerCase().includes(query) || c.back.toLowerCase().includes(query));
-                
-                // 최신순 정렬
                 filtered = filtered.reverse();
 
                 const totalItems = filtered.length;
@@ -362,19 +371,14 @@
 
                 if (totalPages > 1) {
                     let pagHTML = '';
-                    
                     pagHTML += `<button class="page-btn" onclick="ui.changePage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>&lt;</button>`;
-                    
                     let startPage = Math.max(1, currentPage - 2);
                     let endPage = Math.min(totalPages, startPage + 4);
                     if (endPage - startPage < 4) startPage = Math.max(1, endPage - 4);
-
                     for (let i = startPage; i <= endPage; i++) {
                         pagHTML += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="ui.changePage(${i})">${i}</button>`;
                     }
-
                     pagHTML += `<button class="page-btn" onclick="ui.changePage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>&gt;</button>`;
-                    
                     pagArea.innerHTML = pagHTML;
                 }
             },
@@ -384,10 +388,42 @@
                 const dueCards = cards.filter(c => c.nextReview <= today);
                 const newCount = dueCards.filter(c => c.repetitions === 0).length;
                 const revCount = dueCards.filter(c => c.repetitions > 0).length;
-                
                 document.getElementById('study-new').innerText = newCount;
                 document.getElementById('study-rev').innerText = revCount;
                 document.getElementById('study-total').innerText = cards.length;
+            },
+
+            // [NEW] 학습 로그 표시
+            showHistoryLog: (dateKey) => {
+                const logData = history[dateKey];
+                const container = document.getElementById('history-log-area');
+                const listEl = document.getElementById('log-list');
+                const titleEl = document.getElementById('log-date-title');
+
+                if (!logData || !Array.isArray(logData) || logData.length === 0) {
+                    if (typeof logData === 'number' && logData > 0) {
+                        alert("이 날짜의 기록은 상세 로그가 없는 구버전 데이터입니다. (횟수: " + logData + "회)");
+                    } else {
+                        alert("학습 기록이 없습니다.");
+                    }
+                    container.style.display = 'none';
+                    return;
+                }
+
+                titleEl.innerText = dateKey;
+                listEl.innerHTML = '';
+                
+                // 최신순으로 보여주기 위해 역순 정렬
+                [...logData].reverse().forEach(cardId => {
+                    const card = cards.find(c => c.id === cardId);
+                    if (card) {
+                        const div = document.createElement('div');
+                        div.className = 'log-item';
+                        div.innerHTML = `<b>${card.front}</b><br><span style="color:#888;">${card.back}</span>`;
+                        listEl.appendChild(div);
+                    }
+                });
+                container.style.display = 'block';
             }
         };
 
@@ -437,14 +473,19 @@
             },
 
             renderCalendarStats: () => {
-                const total = Object.values(history).reduce((a, b) => a + b, 0);
+                // [Modified] 총 학습 횟수 계산 (배열 길이 합산)
+                const total = Object.values(history).reduce((acc, val) => {
+                    return acc + (Array.isArray(val) ? val.length : (val || 0));
+                }, 0);
                 document.getElementById('txt-total-count').innerText = total + "회";
 
                 let streak = 0;
                 let d = new Date(); 
                 while(true) {
                     const dateStr = logic.formatDate(d);
-                    if ((history[dateStr] || 0) > 0) {
+                    const val = history[dateStr];
+                    const count = Array.isArray(val) ? val.length : (val || 0);
+                    if (count > 0) {
                         streak++;
                         d.setDate(d.getDate() - 1);
                     } else { break; }
@@ -493,7 +534,9 @@
                     const dateObj = new Date(year, month, i);
                     const dateKey = logic.formatDate(dateObj);
 
-                    const count = history[dateKey] || 0;
+                    const val = history[dateKey];
+                    // [Modified] 배열이면 길이, 숫자면 숫자 그대로
+                    const count = Array.isArray(val) ? val.length : (val || 0);
                     if(count > 0) monthTotal += count;
 
                     let classes = 'cal-date';
@@ -501,8 +544,9 @@
                     if (count > 0) classes += ' level-1';
                     if (count >= 10) classes += ' level-2';
 
+                    // [NEW] onclick 추가
                     calArea.innerHTML += `
-                        <div class="${classes}">
+                        <div class="${classes}" onclick="ui.showHistoryLog('${dateKey}')">
                             <span class="cal-date-num">${i}</span>
                             <span class="cal-daily-count">${count}</span>
                         </div>
@@ -569,7 +613,6 @@
                 logic.prepareStudy();
             },
 
-            // [NEW] 지능형 Again 로직 적용
             rateCard: async (quality) => {
                 backupState = {
                     cards: JSON.parse(JSON.stringify(cards)),
@@ -586,20 +629,18 @@
                 nextDate.setDate(nextDate.getDate() + res.interval);
                 currentCard.nextReview = logic.formatDate(nextDate); 
 
-                // 1. 현재 카드 목록에서 제거 (일단 뺌)
+                // 1. 현재 카드 제거
                 cards = cards.filter(c => c.id !== currentCard.id);
 
                 if (quality === 1) {
-                    // [핵심] '오늘 공부할 카드(Due)' 중에서 3번째 녀석을 찾아서 그 뒤에 넣기
+                    // Smart Again Logic
                     const today = logic.getTodayStr();
                     let dueCount = 0;
-                    let insertIndex = cards.length; // 기본값: 맨 뒤
+                    let insertIndex = cards.length;
 
                     for(let i=0; i<cards.length; i++) {
-                        // 오늘 볼 카드면 카운트 증가
                         if (cards[i].nextReview <= today) {
                             dueCount++;
-                            // 3번째 Due 카드 발견하면 그 바로 뒤(i+1)가 넣을 자리
                             if (dueCount === 3) {
                                 insertIndex = i + 1;
                                 break;
@@ -609,9 +650,14 @@
                     cards.splice(insertIndex, 0, currentCard);
                 }
 
-                const today = logic.getTodayStr(); 
-                if (!history[today]) history[today] = 0;
-                history[today]++;
+                // [Modified] 기록 저장 방식 변경 (숫자++ -> 배열 push)
+                const today = logic.getTodayStr();
+                
+                // 기존 데이터가 숫자라면(구버전), 빈 배열로 초기화 (오늘 기록부터는 새로 씀)
+                if (!history[today] || typeof history[today] === 'number') {
+                    history[today] = [];
+                }
+                history[today].push(currentCard.id);
 
                 await logic.saveToDB();
                 logic.prepareStudy();
