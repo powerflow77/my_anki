@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>나만의 단어장 (History Log Added)</title>
+    <title>나만의 단어장 (Unique Stats & Log)</title>
     <style>
         /* 기본 스타일 */
         body { font-family: 'Apple SD Gothic Neo', sans-serif; background-color: #f0f2f5; margin: 0; display: flex; flex-direction: column; height: 100vh; }
@@ -46,7 +46,7 @@
             border-radius: 8px; 
             background: #f9f9f9; 
             position: relative; 
-            cursor: pointer; /* 클릭 가능 표시 */
+            cursor: pointer; 
         }
 
         .cal-date-num { position: absolute; top: 4px; left: 5px; font-size: 10px; color: #bbb; }
@@ -62,7 +62,7 @@
 
         .cal-date.today { border: 2px solid #0056b3; }
         
-        /* [NEW] 로그 리스트 스타일 */
+        /* 로그 리스트 스타일 */
         .log-container { margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px; width: 100%; display: none; }
         .log-title { font-size: 14px; font-weight: bold; color: #555; margin-bottom: 10px; }
         .log-item { background: #f8f9fa; padding: 10px; border-radius: 8px; margin-bottom: 6px; font-size: 13px; color: #333; border-left: 3px solid #007bff; }
@@ -393,7 +393,7 @@
                 document.getElementById('study-total').innerText = cards.length;
             },
 
-            // [NEW] 학습 로그 표시
+            // [Modified] 로그 표시 로직 (중복 제거)
             showHistoryLog: (dateKey) => {
                 const logData = history[dateKey];
                 const container = document.getElementById('history-log-area');
@@ -413,8 +413,10 @@
                 titleEl.innerText = dateKey;
                 listEl.innerHTML = '';
                 
-                // 최신순으로 보여주기 위해 역순 정렬
-                [...logData].reverse().forEach(cardId => {
+                // [NEW] 중복 제거 (Set 사용) 후 최신순 정렬
+                const uniqueIds = [...new Set(logData)];
+                
+                uniqueIds.reverse().forEach(cardId => {
                     const card = cards.find(c => c.id === cardId);
                     if (card) {
                         const div = document.createElement('div');
@@ -473,18 +475,18 @@
             },
 
             renderCalendarStats: () => {
-                // [Modified] 총 학습 횟수 계산 (배열 길이 합산)
+                // [Modified] 총 학습 횟수 계산 (중복 제거된 유니크 개수 합산)
                 const total = Object.values(history).reduce((acc, val) => {
-                    return acc + (Array.isArray(val) ? val.length : (val || 0));
+                    return acc + (Array.isArray(val) ? new Set(val).size : (val || 0));
                 }, 0);
-                document.getElementById('txt-total-count').innerText = total + "회";
+                document.getElementById('txt-total-count').innerText = total + "개"; // '회' -> '개'로 의미 변경
 
                 let streak = 0;
                 let d = new Date(); 
                 while(true) {
                     const dateStr = logic.formatDate(d);
                     const val = history[dateStr];
-                    const count = Array.isArray(val) ? val.length : (val || 0);
+                    const count = Array.isArray(val) ? val.length : (val || 0); // streak은 단순 수행 여부만 체크
                     if (count > 0) {
                         streak++;
                         d.setDate(d.getDate() - 1);
@@ -535,8 +537,8 @@
                     const dateKey = logic.formatDate(dateObj);
 
                     const val = history[dateKey];
-                    // [Modified] 배열이면 길이, 숫자면 숫자 그대로
-                    const count = Array.isArray(val) ? val.length : (val || 0);
+                    // [Modified] 일별 표시 카운트도 중복 제거 (Set.size)
+                    const count = Array.isArray(val) ? new Set(val).size : (val || 0);
                     if(count > 0) monthTotal += count;
 
                     let classes = 'cal-date';
@@ -544,7 +546,6 @@
                     if (count > 0) classes += ' level-1';
                     if (count >= 10) classes += ' level-2';
 
-                    // [NEW] onclick 추가
                     calArea.innerHTML += `
                         <div class="${classes}" onclick="ui.showHistoryLog('${dateKey}')">
                             <span class="cal-date-num">${i}</span>
@@ -553,7 +554,7 @@
                     `;
                 }
                 
-                document.getElementById('cal-month-total').innerText = monthTotal + "회";
+                document.getElementById('cal-month-total').innerText = monthTotal + "개";
             },
 
             changeMonth: (delta) => {
@@ -629,11 +630,9 @@
                 nextDate.setDate(nextDate.getDate() + res.interval);
                 currentCard.nextReview = logic.formatDate(nextDate); 
 
-                // 1. 현재 카드 제거
                 cards = cards.filter(c => c.id !== currentCard.id);
 
                 if (quality === 1) {
-                    // Smart Again Logic
                     const today = logic.getTodayStr();
                     let dueCount = 0;
                     let insertIndex = cards.length;
@@ -650,10 +649,7 @@
                     cards.splice(insertIndex, 0, currentCard);
                 }
 
-                // [Modified] 기록 저장 방식 변경 (숫자++ -> 배열 push)
                 const today = logic.getTodayStr();
-                
-                // 기존 데이터가 숫자라면(구버전), 빈 배열로 초기화 (오늘 기록부터는 새로 씀)
                 if (!history[today] || typeof history[today] === 'number') {
                     history[today] = [];
                 }
