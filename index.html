@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>나만의 단어장 (Unique Stats & Log)</title>
+    <title>나만의 단어장 (Log Removed)</title>
     <style>
         /* 기본 스타일 */
         body { font-family: 'Apple SD Gothic Neo', sans-serif; background-color: #f0f2f5; margin: 0; display: flex; flex-direction: column; height: 100vh; }
@@ -46,7 +46,6 @@
             border-radius: 8px; 
             background: #f9f9f9; 
             position: relative; 
-            cursor: pointer; 
         }
 
         .cal-date-num { position: absolute; top: 4px; left: 5px; font-size: 10px; color: #bbb; }
@@ -62,11 +61,6 @@
 
         .cal-date.today { border: 2px solid #0056b3; }
         
-        /* 로그 리스트 스타일 */
-        .log-container { margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px; width: 100%; display: none; }
-        .log-title { font-size: 14px; font-weight: bold; color: #555; margin-bottom: 10px; }
-        .log-item { background: #f8f9fa; padding: 10px; border-radius: 8px; margin-bottom: 6px; font-size: 13px; color: #333; border-left: 3px solid #007bff; }
-
         /* 학습하기 탭 현황판 */
         .status-box { background: white; padding: 20px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); text-align: center; margin-bottom: 20px; width: 100%; box-sizing: border-box; }
         .stat-row { display: flex; justify-content: space-around; align-items: center; }
@@ -268,11 +262,6 @@
                 <div style="text-align:center; margin-top:15px; font-size:13px; color:#888;">
                     해당 월 학습량: <span id="cal-month-total" style="font-weight:bold; color:#007bff;">0회</span>
                 </div>
-
-                <div id="history-log-area" class="log-container">
-                    <div class="log-title">📋 학습 기록 로그 (<span id="log-date-title"></span>)</div>
-                    <div id="log-list"></div>
-                </div>
             </div>
         </div>
     </div>
@@ -391,41 +380,6 @@
                 document.getElementById('study-new').innerText = newCount;
                 document.getElementById('study-rev').innerText = revCount;
                 document.getElementById('study-total').innerText = cards.length;
-            },
-
-            // [Modified] 로그 표시 로직 (중복 제거)
-            showHistoryLog: (dateKey) => {
-                const logData = history[dateKey];
-                const container = document.getElementById('history-log-area');
-                const listEl = document.getElementById('log-list');
-                const titleEl = document.getElementById('log-date-title');
-
-                if (!logData || !Array.isArray(logData) || logData.length === 0) {
-                    if (typeof logData === 'number' && logData > 0) {
-                        alert("이 날짜의 기록은 상세 로그가 없는 구버전 데이터입니다. (횟수: " + logData + "회)");
-                    } else {
-                        alert("학습 기록이 없습니다.");
-                    }
-                    container.style.display = 'none';
-                    return;
-                }
-
-                titleEl.innerText = dateKey;
-                listEl.innerHTML = '';
-                
-                // [NEW] 중복 제거 (Set 사용) 후 최신순 정렬
-                const uniqueIds = [...new Set(logData)];
-                
-                uniqueIds.reverse().forEach(cardId => {
-                    const card = cards.find(c => c.id === cardId);
-                    if (card) {
-                        const div = document.createElement('div');
-                        div.className = 'log-item';
-                        div.innerHTML = `<b>${card.front}</b><br><span style="color:#888;">${card.back}</span>`;
-                        listEl.appendChild(div);
-                    }
-                });
-                container.style.display = 'block';
             }
         };
 
@@ -479,14 +433,14 @@
                 const total = Object.values(history).reduce((acc, val) => {
                     return acc + (Array.isArray(val) ? new Set(val).size : (val || 0));
                 }, 0);
-                document.getElementById('txt-total-count').innerText = total + "개"; // '회' -> '개'로 의미 변경
+                document.getElementById('txt-total-count').innerText = total + "개";
 
                 let streak = 0;
                 let d = new Date(); 
                 while(true) {
                     const dateStr = logic.formatDate(d);
                     const val = history[dateStr];
-                    const count = Array.isArray(val) ? val.length : (val || 0); // streak은 단순 수행 여부만 체크
+                    const count = Array.isArray(val) ? val.length : (val || 0);
                     if (count > 0) {
                         streak++;
                         d.setDate(d.getDate() - 1);
@@ -547,7 +501,7 @@
                     if (count >= 10) classes += ' level-2';
 
                     calArea.innerHTML += `
-                        <div class="${classes}" onclick="ui.showHistoryLog('${dateKey}')">
+                        <div class="${classes}">
                             <span class="cal-date-num">${i}</span>
                             <span class="cal-daily-count">${count}</span>
                         </div>
